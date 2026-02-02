@@ -1,0 +1,636 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Keuangan Kelas 1</title>
+    
+    <!-- PWA Settings -->
+    <meta name="theme-color" content="#0d9488">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="application-name" content="Keuangan K1">
+    <meta name="apple-mobile-web-app-title" content="Keuangan K1">
+    
+    <!-- Icon Aplikasi (Menggunakan CDN untuk icon buku) -->
+    <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/3389/3389081.png">
+    <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3389/3389081.png">
+
+    <!-- Manifest JSON (Embedded Base64 untuk PWA Single File) -->
+    <link rel="manifest" href='data:application/manifest+json;base64,ewogICJuYW1lIjogIktldWFuZ2FuIEtlbGFzIDEiLAogICJzaG9ydF9uYW1lIjogIktldWFuZ2FuIEsxIiwKICAic3RhcnRfdXJsIjogIi4iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiNmZmZmZmYiLAogICJ0aGVtZV9jb2xvciI6ICIjMGQ5NDg4IiwKICAiaWNvbnMiOiBbCiAgICB7CiAgICAgICJzcmMiOiAiaHR0cHM6Ly9jZG4taWNvbnMtcG5nLmZsYXRpY29uLmNvbS81MTIvMzM4OS8zMzg5MDgxLnBuZyIsCiAgICAgICJzaXplcyI6ICIxOTJ4MTkyIiwKICAgICAgInR5cGUiOiAiaW1hZ2UvcG5nIgogICAgfSwKICAgIHsKICAgICAgInNyYyI6ICJodHRwczovL2Nkbi1pY29ucy1wbmcuZmxhdGljb24uY29tLzUxMi8zMzg5LzMzODkwODEucG5nIiwKICAgICAgInNpemVzIjogIjUxMng1MTIiLAogICAgICAidHlwZSI6ICJpbWFnZS9wbmciCiAgICB9CiAgXQp9'>
+
+    <!-- React & ReactDOM -->
+    <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
+    
+    <!-- Babel untuk compile JSX di browser -->
+    <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- html2canvas untuk fitur download kwitansi -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
+    <style>
+        body {
+            -webkit-tap-highlight-color: transparent;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overscroll-behavior-y: none; /* Mencegah pull-to-refresh pada mode aplikasi */
+        }
+        /* Hide scrollbar for clean UI */
+        ::-webkit-scrollbar {
+            width: 0px;
+            background: transparent;
+        }
+        .no-print {
+            @media print {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 text-gray-800 select-none">
+
+    <div id="root"></div>
+
+    <script type="text/babel">
+        const { useState, useEffect, useMemo, useRef } = React;
+
+        // --- ICONS ---
+        const IconWrapper = ({ children, size = 24, className = "", strokeWidth = 2 }) => (
+            <svg xmlns="http://www.w3.org/2000/svg" width={size} height={size} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={strokeWidth} strokeLinecap="round" strokeLinejoin="round" className={className}>
+                {children}
+            </svg>
+        );
+
+        const Home = (props) => <IconWrapper {...props}><path d="m3 9 9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/><polyline points="9 22 9 12 15 12 15 22"/></IconWrapper>;
+        const CreditCard = (props) => <IconWrapper {...props}><rect width="20" height="14" x="2" y="5" rx="2"/><line x1="2" x2="22" y1="10" y2="10"/></IconWrapper>;
+        const FileText = (props) => <IconWrapper {...props}><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="16" x2="8" y1="13" y2="13"/><line x1="16" x2="8" y1="17" y2="17"/><line x1="10" x2="8" y1="9" y2="9"/></IconWrapper>;
+        const Printer = (props) => <IconWrapper {...props}><polyline points="6 9 6 2 18 2 18 9"/><path d="M6 18H4a2 2 0 0 1-2-2v-5a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2h-2"/><rect width="12" height="8" x="6" y="14"/></IconWrapper>;
+        const CheckCircle2 = (props) => <IconWrapper {...props}><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></IconWrapper>;
+        const XCircle = (props) => <IconWrapper {...props}><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></IconWrapper>;
+        const Upload = (props) => <IconWrapper {...props}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></IconWrapper>;
+        const Download = (props) => <IconWrapper {...props}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></IconWrapper>;
+        const Trash2 = (props) => <IconWrapper {...props}><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/><line x1="10" x2="10" y1="11" y2="17"/><line x1="14" x2="14" y1="11" y2="17"/></IconWrapper>;
+        const BookOpen = (props) => <IconWrapper {...props}><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></IconWrapper>;
+        const CloudDownload = (props) => <IconWrapper {...props}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></IconWrapper>;
+        const CloudUpload = (props) => <IconWrapper {...props}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></IconWrapper>;
+        const Database = (props) => <IconWrapper {...props}><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></IconWrapper>;
+        const CalendarCheck = (props) => <IconWrapper {...props}><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="m9 16 2 2 4-4"/></IconWrapper>;
+
+        // --- DATA KONSTAN ---
+        const DATA_BUKU = [
+          { id: 'lks_fatonah', name: 'LKS Fatonah', price: 10000 },
+          { id: 'btq', name: 'BTQ', price: 8000 },
+          { id: 'pancasila', name: 'Pend. Pancasila', price: 10000 },
+          { id: 'matematika', name: 'Matematika', price: 10000 },
+          { id: 'bindo', name: 'B. Indonesia', price: 10000 },
+          { id: 'pjok', name: 'PJOK', price: 10000 },
+          { id: 'senirupa', name: 'Seni Rupa', price: 10000 },
+          { id: 'bjawa', name: 'B. Jawa', price: 10000 },
+        ];
+
+        const DATA_SISWA_AWAL = [
+          "Atha Zafran Ramadan", "Cakra Abiyasa", "Delia Zahra Salsabila", 
+          "Elvano Akmal Dwitama", "Fajar Askari Ramdani", "Farra Aisyah Azahra", 
+          "Fauziah Hasni Faik Syarif", "Fellisa Putri Hidayat", "Ghali Nufail Tsamaradani", 
+          "Gilang Arjuna Ramadan", "Hafit Ramadhani Saputra", "Kesya Lutfia Alhanisputri", 
+          "Maulana Yusuf Alfarizki", "Muhammad Abdullah Muzaki", "Rafasya Alvin Faaz", 
+          "Randy Prasetya", "Rivandra Luja Anugrah", "Wisnu Arya Kencana", "Yusuf Afka Riansyah"
+        ];
+
+        const TOTAL_TAGIHAN_PER_SISWA = DATA_BUKU.reduce((acc, curr) => acc + curr.price, 0);
+
+        // --- HELPER FUNCTIONS ---
+        function terbilang(nilai) {
+          const angka = Math.abs(nilai);
+          const baca = ["", "Satu", "Dua", "Tiga", "Empat", "Lima", "Enam", "Tujuh", "Delapan", "Sembilan", "Sepuluh", "Sebelas"];
+          let terbilang = "";
+          if (angka < 12) { terbilang = " " + baca[angka]; }
+          else if (angka < 20) { terbilang = terbilangFn(angka - 10) + " Belas"; }
+          else if (angka < 100) { terbilang = terbilangFn(Math.floor(angka / 10)) + " Puluh" + terbilangFn(angka % 10); }
+          else if (angka < 200) { terbilang = " Seratus" + terbilangFn(angka - 100); }
+          else if (angka < 1000) { terbilang = terbilangFn(Math.floor(angka / 100)) + " Ratus" + terbilangFn(angka % 100); }
+          else if (angka < 2000) { terbilang = " Seribu" + terbilangFn(angka - 1000); }
+          else if (angka < 1000000) { terbilang = terbilangFn(Math.floor(angka / 1000)) + " Ribu" + terbilangFn(angka % 1000); }
+          return terbilang;
+        }
+        function terbilangFn(nilai) { return terbilang(nilai); }
+        function formatTerbilang(nilai) {
+          if(nilai === 0) return "Nol Rupiah";
+          return terbilang(nilai).trim() + " Rupiah";
+        }
+        function formatRupiah(number) {
+            return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number);
+        }
+
+        // --- SUB COMPONENTS (Defined outside App to prevent re-render reset issues) ---
+
+        const BerandaView = ({ students, handleBackup, handleRestore }) => {
+            const totalSeharusnya = students.length * TOTAL_TAGIHAN_PER_SISWA;
+            const totalTerkumpul = students.reduce((acc, student) => {
+              return acc + student.paidBooks.reduce((sum, bookId) => sum + (DATA_BUKU.find(b => b.id === bookId)?.price || 0), 0);
+            }, 0);
+            const persentase = Math.round((totalTerkumpul / totalSeharusnya) * 100);
+            const belumBayarSamaSekali = students.filter(s => s.paidBooks.length === 0);
+            const siswaLunas = students.filter(s => s.paidBooks.length === DATA_BUKU.length);
+
+            return (
+              <div className="space-y-6 pb-24 animate-in fade-in duration-500">
+                <header className="bg-gradient-to-r from-teal-600 to-emerald-600 p-6 rounded-b-3xl shadow-lg text-white">
+                  <h1 className="text-2xl font-bold">Keuangan Kelas 1</h1>
+                  <p className="opacity-90 text-sm mt-1">Laporan Buku LKS & Penunjang</p>
+                  <div className="mt-6 bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20">
+                    <p className="text-xs font-medium uppercase tracking-wider opacity-80">Total Terkumpul</p>
+                    <p className="text-3xl font-extrabold mt-1">{formatRupiah(totalTerkumpul)}</p>
+                    <div className="w-full bg-black/20 h-2 rounded-full mt-3 overflow-hidden">
+                      <div className="bg-white h-full transition-all duration-1000" style={{ width: `${persentase}%` }}></div>
+                    </div>
+                    <div className="flex justify-between text-xs mt-2 opacity-80">
+                      <span>Progress: {persentase}%</span>
+                      <span>Target: {formatRupiah(totalSeharusnya)}</span>
+                    </div>
+                  </div>
+                </header>
+
+                <div className="px-4">
+                  <div className="bg-white p-4 rounded-2xl shadow-sm border border-blue-100 flex items-center justify-between">
+                     <div>
+                        <p className="text-xs text-blue-500 font-bold uppercase">Siswa Lunas</p>
+                        <p className="text-lg font-bold text-gray-800 mt-1">
+                          {siswaLunas.length} / {students.length} Siswa
+                        </p>
+                     </div>
+                     <div className="bg-blue-50 p-2 rounded-full">
+                       <CheckCircle2 className="text-blue-500" size={24} />
+                     </div>
+                  </div>
+                </div>
+
+                {/* --- DAFTAR SISWA LUNAS --- */}
+                <div className="px-4">
+                  <h3 className="text-gray-800 font-bold text-lg mb-3 flex items-center">
+                    <CalendarCheck size={20} className="text-blue-600 mr-2" />
+                    Daftar Siswa Lunas
+                  </h3>
+                  {siswaLunas.length === 0 ? (
+                    <div className="bg-blue-50 p-4 rounded-xl text-blue-700 text-sm text-center border border-blue-100">
+                      Belum ada siswa yang lunas sepenuhnya.
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                      {siswaLunas.map((siswa, idx) => (
+                        <div key={siswa.id} className={`p-4 flex items-center justify-between ${idx !== siswaLunas.length - 1 ? 'border-b border-gray-100' : ''}`}>
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center font-bold text-xs">
+                              {siswa.id}
+                            </div>
+                            <div>
+                                <p className="text-gray-700 font-medium">{siswa.name}</p>
+                                <p className="text-[10px] text-gray-500 flex items-center gap-1">
+                                    <span className="bg-blue-50 text-blue-600 px-1.5 py-0.5 rounded text-[9px] font-bold">LUNAS</span>
+                                    <span>Tgl: {siswa.lastUpdate}</span>
+                                </p>
+                            </div>
+                          </div>
+                          <CheckCircle2 size={18} className="text-blue-500" />
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                <div className="px-4">
+                  <h3 className="text-gray-800 font-bold text-lg mb-3 flex items-center">
+                    <XCircle size={20} className="text-red-500 mr-2" />
+                    Belum Ada Pembayaran
+                  </h3>
+                  {belumBayarSamaSekali.length === 0 ? (
+                    <div className="bg-green-50 p-4 rounded-xl text-green-700 text-sm text-center">
+                      Semua siswa sudah mulai mengangsur/lunas.
+                    </div>
+                  ) : (
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                      {belumBayarSamaSekali.map((siswa, idx) => (
+                        <div key={siswa.id} className={`p-4 flex items-center justify-between ${idx !== belumBayarSamaSekali.length - 1 ? 'border-b border-gray-100' : ''}`}>
+                          <div className="flex items-center gap-3">
+                            <div className="w-8 h-8 rounded-full bg-red-100 text-red-600 flex items-center justify-center font-bold text-xs">
+                              {siswa.id}
+                            </div>
+                            <span className="text-gray-700 font-medium">{siswa.name}</span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Data Management */}
+                <div className="px-4 pt-4 border-t border-gray-200 mt-8">
+                   <h3 className="text-gray-800 font-bold text-lg mb-3 flex items-center">
+                      <Database size={20} className="text-gray-600 mr-2" />
+                      Manajemen Data
+                   </h3>
+                   <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 space-y-4">
+                      <button onClick={handleBackup} className="w-full flex items-center justify-between bg-teal-50 hover:bg-teal-100 border border-teal-200 p-4 rounded-xl transition-colors text-left">
+                         <div>
+                            <p className="font-bold text-teal-800 text-sm">Backup Data (Simpan)</p>
+                            <p className="text-xs text-teal-600 mt-1">Download data ke file agar aman.</p>
+                         </div>
+                         <CloudDownload className="text-teal-600" size={24} />
+                      </button>
+
+                      <div className="w-full relative">
+                          <input type="file" accept=".json" onChange={handleRestore} className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                          <div className="w-full flex items-center justify-between bg-orange-50 hover:bg-orange-100 border border-orange-200 p-4 rounded-xl transition-colors text-left">
+                             <div>
+                                <p className="font-bold text-orange-800 text-sm">Restore Data (Kembalikan)</p>
+                                <p className="text-xs text-orange-600 mt-1">Upload file backup untuk memulihkan data.</p>
+                             </div>
+                             <CloudUpload className="text-orange-600" size={24} />
+                          </div>
+                      </div>
+                      <p className="text-[10px] text-gray-400 text-center italic mt-2">*Gunakan fitur ini jika ingin memindahkan data ke HP lain.</p>
+                   </div>
+                </div>
+              </div>
+            );
+        };
+
+        const PembayaranView = ({ students, handlePaymentToggle }) => {
+            const [selectedStudentId, setSelectedStudentId] = useState(null);
+            
+            const activeStudent = useMemo(() => students.find(s => s.id === parseInt(selectedStudentId)), [selectedStudentId, students]);
+
+            const hitungTotalSiswa = (siswa) => {
+               if(!siswa) return 0;
+               return siswa.paidBooks.reduce((sum, bookId) => sum + (DATA_BUKU.find(b => b.id === bookId)?.price || 0), 0);
+            };
+
+            return (
+              <div className="pb-24 animate-in slide-in-from-right duration-300">
+                <header className="bg-white sticky top-0 z-10 p-4 shadow-sm border-b">
+                   <h2 className="text-xl font-bold text-gray-800 mb-4">Input Pembayaran</h2>
+                   <label className="block text-sm font-medium text-gray-500 mb-1">Pilih Nama Siswa</label>
+                   <select 
+                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
+                      onChange={(e) => setSelectedStudentId(e.target.value)}
+                      value={selectedStudentId || ''}
+                   >
+                     <option value="">-- Pilih Siswa --</option>
+                     {students.map(s => <option key={s.id} value={s.id}>{s.id}. {s.name}</option>)}
+                   </select>
+                </header>
+
+                {activeStudent ? (
+                  <div className="p-4 space-y-4">
+                    <div className="bg-teal-50 p-4 rounded-xl border border-teal-100 flex justify-between items-center">
+                      <div>
+                        <p className="text-xs text-teal-600 uppercase font-bold">Total Terbayar</p>
+                        <p className="text-xl font-bold text-teal-800">{formatRupiah(hitungTotalSiswa(activeStudent))}</p>
+                      </div>
+                      <div className="text-right">
+                        <p className="text-xs text-gray-500">Kekurangan</p>
+                        <p className="text-sm font-medium text-red-500">{formatRupiah(TOTAL_TAGIHAN_PER_SISWA - hitungTotalSiswa(activeStudent))}</p>
+                      </div>
+                    </div>
+
+                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                       <div className="bg-gray-50 p-3 border-b border-gray-100">
+                          <h3 className="text-sm font-bold text-gray-700">Daftar Buku LKS 2026</h3>
+                       </div>
+                       {DATA_BUKU.map((buku) => {
+                         const isPaid = activeStudent.paidBooks.includes(buku.id);
+                         return (
+                           <div key={buku.id} onClick={() => handlePaymentToggle(activeStudent.id, buku.id)}
+                             className={`p-4 flex items-center justify-between border-b border-gray-50 cursor-pointer active:bg-gray-50 transition-colors select-none ${isPaid ? 'bg-green-50/30' : ''}`}
+                           >
+                              <div className="flex items-center gap-3">
+                                <div className={`w-6 h-6 rounded border flex items-center justify-center transition-colors ${isPaid ? 'bg-teal-500 border-teal-500' : 'border-gray-300 bg-white'}`}>
+                                   {isPaid && <CheckCircle2 size={16} className="text-white" />}
+                                </div>
+                                <div>
+                                  <p className={`font-medium ${isPaid ? 'text-teal-900' : 'text-gray-700'}`}>{buku.name}</p>
+                                  <p className="text-xs text-gray-500">{formatRupiah(buku.price)}</p>
+                                </div>
+                              </div>
+                              <div className="text-xs font-medium px-2 py-1 rounded bg-gray-100 text-gray-600">{isPaid ? 'LUNAS' : 'BELUM'}</div>
+                           </div>
+                         );
+                       })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-[50vh] text-gray-400">
+                    <BookOpen size={48} className="mb-4 opacity-50" />
+                    <p>Silakan pilih siswa terlebih dahulu</p>
+                  </div>
+                )}
+              </div>
+            );
+        };
+
+        const DetailView = ({ students }) => (
+            <div className="pb-24 animate-in slide-in-from-right duration-300">
+              <header className="bg-white sticky top-0 z-10 p-4 shadow-sm border-b">
+                 <h2 className="text-xl font-bold text-gray-800">Detail Rekapitulasi</h2>
+                 <p className="text-sm text-gray-500">Status kelengkapan per siswa</p>
+              </header>
+              <div className="p-4 space-y-4">
+                {students.map((student) => {
+                   const studentTotal = student.paidBooks.reduce((sum, bookId) => sum + (DATA_BUKU.find(b => b.id === bookId)?.price || 0), 0);
+                   const isLunas = student.paidBooks.length === DATA_BUKU.length;
+                   return (
+                     <div key={student.id} className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
+                       <div className="bg-gray-50 p-3 border-b border-gray-200 flex justify-between items-center">
+                          <div className="flex items-center gap-2">
+                             <span className="bg-gray-200 text-gray-700 text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center">{student.id}</span>
+                             <h3 className="font-bold text-gray-800 text-sm truncate w-40 sm:w-auto">{student.name}</h3>
+                          </div>
+                          {isLunas ? <span className="bg-green-100 text-green-700 text-xs font-bold px-2 py-1 rounded-full">LUNAS</span> : <span className="bg-orange-100 text-orange-700 text-xs font-bold px-2 py-1 rounded-full">BELUM</span>}
+                       </div>
+                       <div className="p-3">
+                         <div className="grid grid-cols-2 gap-2 mb-3">
+                           {DATA_BUKU.map(buku => {
+                             const paid = student.paidBooks.includes(buku.id);
+                             return (
+                               <div key={buku.id} className="flex items-center justify-between text-xs p-1.5 rounded border border-gray-100">
+                                  <span className="text-gray-600 truncate mr-1">{buku.name}</span>
+                                  {paid ? <CheckCircle2 size={14} className="text-green-500 shrink-0" /> : <XCircle size={14} className="text-red-300 shrink-0" />}
+                               </div>
+                             )
+                           })}
+                         </div>
+                         <div className="flex justify-between items-end border-t border-dashed border-gray-200 pt-3">
+                            <div><p className="text-[10px] text-gray-400">Terakhir Update</p><p className="text-xs font-medium text-gray-600">{student.lastUpdate}</p></div>
+                            <div className="text-right"><p className="text-[10px] text-gray-400">Total Dibayar</p><p className="text-base font-bold text-teal-700">{formatRupiah(studentTotal)}</p></div>
+                         </div>
+                       </div>
+                     </div>
+                   );
+                })}
+              </div>
+            </div>
+        );
+
+        const KwitansiView = ({ students, signatureImg, setSignatureImg }) => {
+            const [selectedStudentId, setSelectedStudentId] = useState("");
+            const [tempat, setTempat] = useState("Sekolah");
+            const [tanggal, setTanggal] = useState(new Date().toISOString().split('T')[0]);
+            // ADDED: State untuk nama penerima (default: Guru Kelas 1)
+            const [namaPenerima, setNamaPenerima] = useState(() => localStorage.getItem('guruName') || "Guru Kelas 1");
+            const receiptRef = useRef(null);
+
+            const activeStudent = useMemo(() => students.find(s => s.id === parseInt(selectedStudentId)), [selectedStudentId, students]);
+
+            // ADDED: Effect untuk menyimpan nama penerima otomatis
+            useEffect(() => {
+                localStorage.setItem('guruName', namaPenerima);
+            }, [namaPenerima]);
+
+            const totalBayar = activeStudent ? activeStudent.paidBooks.reduce((sum, bookId) => sum + (DATA_BUKU.find(b => b.id === bookId)?.price || 0), 0) : 0;
+            const noKwitansi = activeStudent ? `KW/2026/${String(activeStudent.id).padStart(3, '0')}` : "...";
+
+            const handleDownloadImage = async () => {
+              if (!receiptRef.current) return;
+              if (typeof window.html2canvas === 'undefined') {
+                alert("Sistem cetak sedang dimuat... Mohon tunggu 3 detik dan coba lagi.");
+                return;
+              }
+              try {
+                const canvas = await window.html2canvas(receiptRef.current, { scale: 2, useCORS: true });
+                const image = canvas.toDataURL("image/png");
+                const link = document.createElement("a");
+                link.href = image;
+                link.download = `Kwitansi_${activeStudent.name.replace(/\s+/g, '_')}.png`;
+                link.click();
+              } catch (err) {
+                console.error("Gagal generate gambar", err);
+                alert("Gagal membuat gambar. Anda bisa menggunakan Screenshot biasa.");
+              }
+            };
+
+            const handleSignatureUpload = (e) => {
+               const file = e.target.files[0];
+               if (file) {
+                 const reader = new FileReader();
+                 reader.onloadend = () => setSignatureImg(reader.result);
+                 reader.readAsDataURL(file);
+               }
+            };
+
+            return (
+              <div className="pb-24 animate-in slide-in-from-right duration-300">
+                <header className="bg-white sticky top-0 z-10 p-4 shadow-sm border-b no-print">
+                   <h2 className="text-xl font-bold text-gray-800 mb-4">Cetak Kwitansi</h2>
+                   <div className="space-y-3">
+                     <div>
+                       <label className="block text-xs font-medium text-gray-500 mb-1">Pilih Siswa</label>
+                       <select className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
+                          onChange={(e) => setSelectedStudentId(e.target.value)} value={selectedStudentId}>
+                         <option value="">-- Pilih --</option>
+                         {students.map(s => <option key={s.id} value={s.id}>{s.id}. {s.name}</option>)}
+                       </select>
+                     </div>
+                     <div className="grid grid-cols-2 gap-2">
+                       <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Tempat</label>
+                          <input type="text" className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm" 
+                            value={tempat} onChange={(e) => setTempat(e.target.value)} />
+                       </div>
+                       <div>
+                          <label className="block text-xs font-medium text-gray-500 mb-1">Tanggal</label>
+                          <input type="date" className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm" 
+                            value={tanggal} onChange={(e) => setTanggal(e.target.value)} />
+                       </div>
+                     </div>
+                     
+                     {/* ADDED: Input Nama Penerima */}
+                     <div>
+                        <label className="block text-xs font-medium text-gray-500 mb-1">Nama Penerima (Guru)</label>
+                        <input type="text" className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm" 
+                          value={namaPenerima} onChange={(e) => setNamaPenerima(e.target.value)} placeholder="Contoh: Ibu Guru, S.Pd" />
+                     </div>
+
+                     <div className="border-t border-gray-100 pt-3">
+                       <label className="block text-xs font-medium text-gray-500 mb-2">Tanda Tangan Guru</label>
+                       <div className="flex items-center gap-2">
+                          <label className="flex items-center justify-center px-4 py-2 bg-teal-50 text-teal-700 rounded-lg cursor-pointer text-xs font-bold hover:bg-teal-100">
+                            <Upload size={14} className="mr-2" /> Upload Scan TTD
+                            <input type="file" accept="image/*" className="hidden" onChange={handleSignatureUpload} />
+                          </label>
+                          {signatureImg && (
+                            <button onClick={() => setSignatureImg(null)} className="p-2 text-red-500 bg-red-50 rounded-lg">
+                              <Trash2 size={14} />
+                            </button>
+                          )}
+                       </div>
+                       <p className="text-[10px] text-gray-400 mt-1">*Upload foto tanda tangan (background putih/transparan) jika ingin tampil di kwitansi.</p>
+                     </div>
+                   </div>
+                </header>
+
+                {activeStudent ? (
+                  <div className="p-4 bg-gray-200 min-h-[400px] flex flex-col items-center">
+                     <div ref={receiptRef} className="bg-white p-6 w-full max-w-[400px] shadow-lg text-xs font-serif relative" 
+                          style={{ backgroundImage: 'radial-gradient(#f0f0f0 1px, transparent 1px)', backgroundSize: '10px 10px' }}>
+                        <div className="border-b-2 border-double border-gray-800 pb-2 mb-4 flex justify-between items-end">
+                           <div>
+                              <h1 className="text-lg font-bold text-gray-900 tracking-wider">KWITANSI</h1>
+                              <p className="text-[10px] italic">Pembayaran Buku LKS Kelas 1</p>
+                           </div>
+                           <div className="text-right"><p className="font-bold">No: {noKwitansi}</p></div>
+                        </div>
+                        <div className="space-y-3 text-gray-800 leading-relaxed">
+                           <div className="flex">
+                              <span className="w-24 shrink-0 font-bold">Telah Terima Dari</span>
+                              <span className="mr-2">:</span>
+                              <span className="font-bold border-b border-gray-300 w-full uppercase">{activeStudent.name}</span>
+                           </div>
+                           <div className="flex">
+                              <span className="w-24 shrink-0 font-bold">Uang Sejumlah</span>
+                              <span className="mr-2">:</span>
+                              <span className="italic border-b border-gray-300 w-full bg-gray-50 px-1"># {formatTerbilang(totalBayar)} #</span>
+                           </div>
+                           <div className="flex items-start">
+                              <span className="w-24 shrink-0 font-bold">Untuk Pembayaran</span>
+                              <span className="mr-2">:</span>
+                              <div className="border-b border-gray-300 w-full min-h-[40px]">
+                                 {activeStudent.paidBooks.length === 0 ? "Belum ada pembayaran" : 
+                                  activeStudent.paidBooks.map(bid => DATA_BUKU.find(b => b.id === bid)?.name).join(", ")}
+                              </div>
+                           </div>
+                        </div>
+                        <div className="mt-8 flex justify-between items-end">
+                           <div className="mb-2">
+                              <div className="bg-gray-100 border-2 border-gray-800 px-3 py-2 rounded-tl-lg rounded-br-lg transform -rotate-1 shadow-md">
+                                 <span className="font-bold text-lg">{formatRupiah(totalBayar)}</span>
+                              </div>
+                           </div>
+                           <div className="text-center w-32 relative">
+                              <p className="mb-8">{tempat}, {new Date(tanggal).toLocaleDateString('id-ID', {day: 'numeric', month: 'long', year: 'numeric'})}</p>
+                              <div className="h-16 flex items-end justify-center relative">
+                                 {signatureImg ? (
+                                   <img src={signatureImg} alt="TTD" className="absolute bottom-2 max-h-20 max-w-full mix-blend-multiply" />
+                                 ) : ( <p className="text-gray-300 text-[10px] absolute bottom-6">( Tanda Tangan )</p> )}
+                                 {/* ADDED: Menggunakan variabel namaPenerima */}
+                                 <p className="font-bold border-b border-gray-800 w-full relative z-10">{namaPenerima}</p>
+                              </div>
+                           </div>
+                        </div>
+                     </div>
+                     <button onClick={handleDownloadImage} className="mt-6 bg-teal-600 text-white w-full py-3 rounded-xl font-bold shadow-lg flex items-center justify-center gap-2 active:scale-95 transition-transform no-print">
+                       <Download size={20} /> Download Gambar (PNG)
+                     </button>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-[40vh] text-gray-400">
+                    <Printer size={48} className="mb-4 opacity-50" />
+                    <p>Pilih siswa untuk buat kwitansi</p>
+                  </div>
+                )}
+              </div>
+            );
+        };
+
+        // --- MAIN APP COMPONENT ---
+
+        function App() {
+          const [activeTab, setActiveTab] = useState('beranda');
+          
+          const [students, setStudents] = useState(() => {
+            const saved = localStorage.getItem('dataKeuanganKelas1');
+            if (saved) return JSON.parse(saved);
+            return DATA_SISWA_AWAL.map((name, index) => ({
+              id: index + 1,
+              name: name,
+              paidBooks: [], 
+              lastUpdate: '-'
+            }));
+          });
+
+          const [signatureImg, setSignatureImg] = useState(() => {
+            return localStorage.getItem('guruSignature') || null;
+          });
+
+          useEffect(() => { localStorage.setItem('dataKeuanganKelas1', JSON.stringify(students)); }, [students]);
+          useEffect(() => {
+            if (signatureImg) { localStorage.setItem('guruSignature', signatureImg); }
+            else { localStorage.removeItem('guruSignature'); }
+          }, [signatureImg]);
+
+          const handlePaymentToggle = (studentId, bookId) => {
+            const now = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+            setStudents(prev => prev.map(student => {
+              if (student.id !== studentId) return student;
+              const isPaid = student.paidBooks.includes(bookId);
+              let newPaidBooks = isPaid ? student.paidBooks.filter(id => id !== bookId) : [...student.paidBooks, bookId];
+              return { ...student, paidBooks: newPaidBooks, lastUpdate: newPaidBooks.length > 0 ? now : '-' };
+            }));
+          };
+
+          const handleBackup = () => {
+             const dataToSave = { students, signature: signatureImg, appVersion: "1.0", timestamp: new Date().toISOString() };
+             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataToSave));
+             const downloadAnchorNode = document.createElement('a');
+             downloadAnchorNode.setAttribute("href", dataStr);
+             downloadAnchorNode.setAttribute("download", "backup_keuangan_kelas1_" + new Date().toISOString().split('T')[0] + ".json");
+             document.body.appendChild(downloadAnchorNode);
+             downloadAnchorNode.click();
+             downloadAnchorNode.remove();
+          };
+
+          const handleRestore = (event) => {
+             const fileReader = new FileReader();
+             const file = event.target.files[0];
+             if (!file) return;
+             fileReader.readAsText(file, "UTF-8");
+             fileReader.onload = (e) => {
+                try {
+                   const parsedData = JSON.parse(e.target.result);
+                   if (parsedData.students && Array.isArray(parsedData.students)) {
+                      if (confirm("PERINGATAN: Restore akan menimpa data yang ada.\n\nYakin ingin melanjutkan?")) {
+                          setStudents(parsedData.students);
+                          if (parsedData.signature) { setSignatureImg(parsedData.signature); }
+                          alert("Sukses! Data berhasil dikembalikan.");
+                      }
+                   } else { alert("Format file tidak valid."); }
+                } catch (error) { alert("Gagal membaca file."); }
+                event.target.value = null;
+             };
+          };
+
+          return (
+            <div className="min-h-screen bg-gray-50 font-sans text-gray-800 max-w-md mx-auto shadow-2xl overflow-hidden relative">
+              <main className="h-full min-h-screen">
+                {activeTab === 'beranda' && <BerandaView students={students} handleBackup={handleBackup} handleRestore={handleRestore} />}
+                {activeTab === 'pembayaran' && <PembayaranView students={students} handlePaymentToggle={handlePaymentToggle} />}
+                {activeTab === 'detail' && <DetailView students={students} />}
+                {activeTab === 'kwitansi' && <KwitansiView students={students} signatureImg={signatureImg} setSignatureImg={setSignatureImg} />}
+              </main>
+
+              <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-gray-200 flex justify-around items-center h-20 px-2 pb-2 z-50">
+                <button onClick={() => setActiveTab('beranda')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${activeTab === 'beranda' ? 'text-teal-600' : 'text-gray-400'}`}>
+                  <Home size={20} strokeWidth={activeTab === 'beranda' ? 2.5 : 2} /> <span className="text-[9px] font-medium">Beranda</span>
+                </button>
+                <button onClick={() => setActiveTab('pembayaran')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${activeTab === 'pembayaran' ? 'text-teal-600' : 'text-gray-400'}`}>
+                  <CreditCard size={20} strokeWidth={activeTab === 'pembayaran' ? 2.5 : 2} /> <span className="text-[9px] font-medium">Bayar</span>
+                </button>
+                <button onClick={() => setActiveTab('detail')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${activeTab === 'detail' ? 'text-teal-600' : 'text-gray-400'}`}>
+                  <FileText size={20} strokeWidth={activeTab === 'detail' ? 2.5 : 2} /> <span className="text-[9px] font-medium">Detail</span>
+                </button>
+                <button onClick={() => setActiveTab('kwitansi')} className={`flex flex-col items-center justify-center w-full h-full space-y-1 ${activeTab === 'kwitansi' ? 'text-teal-600' : 'text-gray-400'}`}>
+                  <Printer size={20} strokeWidth={activeTab === 'kwitansi' ? 2.5 : 2} /> <span className="text-[9px] font-medium">Kwitansi</span>
+                </button>
+              </nav>
+            </div>
+          );
+        }
+
+        const root = ReactDOM.createRoot(document.getElementById('root'));
+        root.render(<App />);
+    </script>
+</body>
+</html>
