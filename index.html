@@ -13,18 +13,18 @@
     <meta name="application-name" content="Keuangan K1">
     <meta name="apple-mobile-web-app-title" content="Keuangan K1">
     
-    <!-- Icon Aplikasi (Menggunakan CDN untuk icon buku) -->
+    <!-- Icon Aplikasi -->
     <link rel="icon" type="image/png" href="https://cdn-icons-png.flaticon.com/512/3389/3389081.png">
     <link rel="apple-touch-icon" href="https://cdn-icons-png.flaticon.com/512/3389/3389081.png">
 
-    <!-- Manifest JSON (Embedded Base64 untuk PWA Single File) -->
+    <!-- Manifest JSON -->
     <link rel="manifest" href='data:application/manifest+json;base64,ewogICJuYW1lIjogIktldWFuZ2FuIEtlbGFzIDEiLAogICJzaG9ydF9uYW1lIjogIktldWFuZ2FuIEsxIiwKICAic3RhcnRfdXJsIjogIi4iLAogICJkaXNwbGF5IjogInN0YW5kYWxvbmUiLAogICJiYWNrZ3JvdW5kX2NvbG9yIjogIiNmZmZmZmYiLAogICJ0aGVtZV9jb2xvciI6ICIjMGQ5NDg4IiwKICAiaWNvbnMiOiBbCiAgICB7CiAgICAgICJzcmMiOiAiaHR0cHM6Ly9jZG4taWNvbnMtcG5nLmZsYXRpY29uLmNvbS81MTIvMzM4OS8zMzg5MDgxLnBuZyIsCiAgICAgICJzaXplcyI6ICIxOTJ4MTkyIiwKICAgICAgInR5cGUiOiAiaW1hZ2UvcG5nIgogICAgfSwKICAgIHsKICAgICAgInNyYyI6ICJodHRwczovL2Nkbi1pY29ucy1wbmcuZmxhdGljb24uY29tLzUxMi8zMzg5LzMzODkwODEucG5nIiwKICAgICAgInNpemVzIjogIjUxMng1MTIiLAogICAgICAidHlwZSI6ICJpbWFnZS9wbmciCiAgICB9CiAgXQp9'>
 
     <!-- React & ReactDOM -->
     <script src="https://unpkg.com/react@18/umd/react.development.js" crossorigin></script>
     <script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js" crossorigin></script>
     
-    <!-- Babel untuk compile JSX di browser -->
+    <!-- Babel untuk compile JSX -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     
     <!-- Tailwind CSS -->
@@ -37,9 +37,8 @@
         body {
             -webkit-tap-highlight-color: transparent;
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            overscroll-behavior-y: none; /* Mencegah pull-to-refresh pada mode aplikasi */
+            overscroll-behavior-y: none;
         }
-        /* Hide scrollbar for clean UI */
         ::-webkit-scrollbar {
             width: 0px;
             background: transparent;
@@ -48,6 +47,15 @@
             @media print {
                 display: none;
             }
+        }
+        /* Hide arrows on number input */
+        input[type=number]::-webkit-inner-spin-button, 
+        input[type=number]::-webkit-outer-spin-button { 
+            -webkit-appearance: none; 
+            margin: 0; 
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
         }
     </style>
 </head>
@@ -79,6 +87,7 @@
         const CloudUpload = (props) => <IconWrapper {...props}><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" x2="12" y1="3" y2="15"/></IconWrapper>;
         const Database = (props) => <IconWrapper {...props}><ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M21 12c0 1.66-4 3-9 3s-9-1.34-9-3"/><path d="M3 5v14c0 1.66 4 3 9 3s9-1.34 9-3V5"/></IconWrapper>;
         const CalendarCheck = (props) => <IconWrapper {...props}><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="m9 16 2 2 4-4"/></IconWrapper>;
+        const CalculatorIcon = (props) => <IconWrapper {...props}><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></IconWrapper>;
 
         // --- DATA KONSTAN ---
         const DATA_BUKU = [
@@ -126,7 +135,7 @@
             return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(number);
         }
 
-        // --- SUB COMPONENTS (Defined outside App to prevent re-render reset issues) ---
+        // --- SUB COMPONENTS ---
 
         const BerandaView = ({ students, handleBackup, handleRestore }) => {
             const totalSeharusnya = students.length * TOTAL_TAGIHAN_PER_SISWA;
@@ -169,7 +178,6 @@
                   </div>
                 </div>
 
-                {/* --- DAFTAR SISWA LUNAS --- */}
                 <div className="px-4">
                   <h3 className="text-gray-800 font-bold text-lg mb-3 flex items-center">
                     <CalendarCheck size={20} className="text-blue-600 mr-2" />
@@ -260,14 +268,40 @@
         };
 
         const PembayaranView = ({ students, handlePaymentToggle }) => {
-            const [selectedStudentId, setSelectedStudentId] = useState(null);
+            const [selectedStudentId, setSelectedStudentId] = useState("");
+            // --- STATE BARU UNTUK KALKULATOR ---
+            const [tagihanSesi, setTagihanSesi] = useState(0);
+            const [uangDiterima, setUangDiterima] = useState("");
             
             const activeStudent = useMemo(() => students.find(s => s.id === parseInt(selectedStudentId)), [selectedStudentId, students]);
+
+            // Reset kalkulator saat ganti siswa
+            useEffect(() => {
+                setTagihanSesi(0);
+                setUangDiterima("");
+            }, [selectedStudentId]);
 
             const hitungTotalSiswa = (siswa) => {
                if(!siswa) return 0;
                return siswa.paidBooks.reduce((sum, bookId) => sum + (DATA_BUKU.find(b => b.id === bookId)?.price || 0), 0);
             };
+
+            // Fungsi khusus saat klik buku (Update status & update kalkulator)
+            const handleToggleBuku = (buku) => {
+                const isPaid = activeStudent.paidBooks.includes(buku.id);
+                if (isPaid) {
+                    // Jika dibatalkan (uncheck), kurangi tagihan sesi ini
+                    setTagihanSesi(prev => prev - buku.price);
+                } else {
+                    // Jika dicentang (bayar), tambah tagihan sesi ini
+                    setTagihanSesi(prev => prev + buku.price);
+                }
+                // Panggil fungsi utama penyimpan data
+                handlePaymentToggle(activeStudent.id, buku.id);
+            };
+
+            const bayarAngka = uangDiterima ? Number(uangDiterima) : 0;
+            const kembalian = bayarAngka - tagihanSesi;
 
             return (
               <div className="pb-24 animate-in slide-in-from-right duration-300">
@@ -277,7 +311,7 @@
                    <select 
                       className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
                       onChange={(e) => setSelectedStudentId(e.target.value)}
-                      value={selectedStudentId || ''}
+                      value={selectedStudentId}
                    >
                      <option value="">-- Pilih Siswa --</option>
                      {students.map(s => <option key={s.id} value={s.id}>{s.id}. {s.name}</option>)}
@@ -288,15 +322,54 @@
                   <div className="p-4 space-y-4">
                     <div className="bg-teal-50 p-4 rounded-xl border border-teal-100 flex justify-between items-center">
                       <div>
-                        <p className="text-xs text-teal-600 uppercase font-bold">Total Terbayar</p>
+                        <p className="text-xs text-teal-600 uppercase font-bold">Total Terbayar Keseluruhan</p>
                         <p className="text-xl font-bold text-teal-800">{formatRupiah(hitungTotalSiswa(activeStudent))}</p>
                       </div>
                       <div className="text-right">
-                        <p className="text-xs text-gray-500">Kekurangan</p>
+                        <p className="text-xs text-gray-500">Sisa Tagihan</p>
                         <p className="text-sm font-medium text-red-500">{formatRupiah(TOTAL_TAGIHAN_PER_SISWA - hitungTotalSiswa(activeStudent))}</p>
                       </div>
                     </div>
 
+                    {/* --- FITUR KALKULATOR KEMBALIAN --- */}
+                    <div className="bg-white rounded-2xl shadow-sm border border-teal-200 overflow-hidden">
+                        <div className="bg-teal-600 p-3 border-b border-teal-700 flex items-center gap-2 text-white">
+                            <CalculatorIcon size={18} />
+                            <h3 className="text-sm font-bold">Kalkulator Pembayaran (Hari Ini)</h3>
+                        </div>
+                        <div className="p-4 space-y-4">
+                            <div className="flex justify-between items-center">
+                                <span className="text-xs text-gray-500 font-medium">1. Centang buku di bawah, tagihan akan muncul:</span>
+                                <span className="font-bold text-gray-800 bg-gray-100 px-2 py-1 rounded">
+                                    {formatRupiah(tagihanSesi)}
+                                </span>
+                            </div>
+                            <div className="flex justify-between items-center">
+                                <span className="text-xs text-gray-800 font-bold">2. Masukkan Uang Diterima:</span>
+                                <div className="relative">
+                                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500 text-sm font-medium">Rp</span>
+                                    <input 
+                                        type="number" 
+                                        inputMode="numeric"
+                                        value={uangDiterima}
+                                        onChange={(e) => setUangDiterima(e.target.value)}
+                                        className="pl-9 pr-3 py-2 w-36 text-right bg-gray-50 border border-gray-300 rounded-xl text-sm font-bold text-gray-800 focus:ring-2 focus:ring-teal-500 focus:border-teal-500 outline-none transition-all"
+                                        placeholder="0"
+                                    />
+                                </div>
+                            </div>
+                            <div className="flex justify-between items-center pt-3 border-t border-dashed border-gray-200">
+                                <span className="text-sm font-bold text-gray-700">
+                                    {kembalian < 0 && uangDiterima ? "Kurang:" : "Kembalian:"}
+                                </span>
+                                <span className={`text-xl font-extrabold ${uangDiterima ? (kembalian >= 0 ? 'text-green-600' : 'text-red-500') : 'text-gray-400'}`}>
+                                    {uangDiterima ? formatRupiah(Math.abs(kembalian)) : '-'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+
+                    {/* DAFTAR BUKU */}
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                        <div className="bg-gray-50 p-3 border-b border-gray-100">
                           <h3 className="text-sm font-bold text-gray-700">Daftar Buku LKS 2026</h3>
@@ -304,7 +377,7 @@
                        {DATA_BUKU.map((buku) => {
                          const isPaid = activeStudent.paidBooks.includes(buku.id);
                          return (
-                           <div key={buku.id} onClick={() => handlePaymentToggle(activeStudent.id, buku.id)}
+                           <div key={buku.id} onClick={() => handleToggleBuku(buku)}
                              className={`p-4 flex items-center justify-between border-b border-gray-50 cursor-pointer active:bg-gray-50 transition-colors select-none ${isPaid ? 'bg-green-50/30' : ''}`}
                            >
                               <div className="flex items-center gap-3">
@@ -379,13 +452,11 @@
             const [selectedStudentId, setSelectedStudentId] = useState("");
             const [tempat, setTempat] = useState("Sekolah");
             const [tanggal, setTanggal] = useState(new Date().toISOString().split('T')[0]);
-            // ADDED: State untuk nama penerima (default: Guru Kelas 1)
             const [namaPenerima, setNamaPenerima] = useState(() => localStorage.getItem('guruName') || "Guru Kelas 1");
             const receiptRef = useRef(null);
 
             const activeStudent = useMemo(() => students.find(s => s.id === parseInt(selectedStudentId)), [selectedStudentId, students]);
 
-            // ADDED: Effect untuk menyimpan nama penerima otomatis
             useEffect(() => {
                 localStorage.setItem('guruName', namaPenerima);
             }, [namaPenerima]);
@@ -447,7 +518,6 @@
                        </div>
                      </div>
                      
-                     {/* ADDED: Input Nama Penerima */}
                      <div>
                         <label className="block text-xs font-medium text-gray-500 mb-1">Nama Penerima (Guru)</label>
                         <input type="text" className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm" 
@@ -515,7 +585,6 @@
                                  {signatureImg ? (
                                    <img src={signatureImg} alt="TTD" className="absolute bottom-2 max-h-20 max-w-full mix-blend-multiply" />
                                  ) : ( <p className="text-gray-300 text-[10px] absolute bottom-6">( Tanda Tangan )</p> )}
-                                 {/* ADDED: Menggunakan variabel namaPenerima */}
                                  <p className="font-bold border-b border-gray-800 w-full relative z-10">{namaPenerima}</p>
                               </div>
                            </div>
