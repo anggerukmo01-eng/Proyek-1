@@ -481,7 +481,7 @@
                                 </button>
                                 <button 
                                     onClick={() => {
-                                        handleUpdatePayment(activeStudent.id, uncheckModal.book.id, 0, 0);
+                                        handleUpdatePayment(activeStudent.id, uncheckModal.book.id, 0, uncheckModal.book.price);
                                         setUncheckModal({ isOpen: false, book: null });
                                     }}
                                     className="flex-1 py-3 bg-red-500 text-white rounded-xl font-bold shadow-sm active:bg-red-600"
@@ -536,8 +536,22 @@
                            })}
                          </div>
                          <div className="flex justify-between items-end border-t border-dashed border-gray-200 pt-3">
-                            <div><p className="text-[10px] text-gray-400">Terakhir Update</p><p className="text-xs font-medium text-gray-600">{student.lastUpdate}</p></div>
-                            <div className="text-right"><p className="text-[10px] text-gray-400">Total Dibayar</p><p className="text-base font-bold text-teal-700">{formatRupiah(studentTotal)}</p></div>
+                            <div className="flex-1 pr-2">
+                                <p className="text-[10px] text-gray-400 mb-1">Riwayat Tanggal Pembayaran</p>
+                                <div className="flex flex-wrap gap-1">
+                                    {student.paymentDates && student.paymentDates.length > 0 ? (
+                                        student.paymentDates.map((date, idx) => (
+                                            <span key={idx} className="bg-teal-50 text-teal-700 border border-teal-100 px-1.5 py-0.5 rounded text-[9px] font-medium tracking-tight whitespace-nowrap">{date}</span>
+                                        ))
+                                    ) : (
+                                        <span className="text-xs font-medium text-gray-600">-</span>
+                                    )}
+                                </div>
+                            </div>
+                            <div className="text-right shrink-0">
+                                <p className="text-[10px] text-gray-400">Total Dibayar</p>
+                                <p className="text-base font-bold text-teal-700">{formatRupiah(studentTotal)}</p>
+                            </div>
                          </div>
                        </div>
                      </div>
@@ -810,13 +824,18 @@
             if (saved) {
                 const parsed = JSON.parse(saved);
                 // Backward compatibility: pastikan partialPayments selalu ada meskipun dari backup lama
-                return parsed.map(s => ({ ...s, partialPayments: s.partialPayments || {} }));
+                return parsed.map(s => ({ 
+                    ...s, 
+                    partialPayments: s.partialPayments || {},
+                    paymentDates: s.paymentDates || (s.lastUpdate && s.lastUpdate !== '-' ? [s.lastUpdate] : [])
+                }));
             }
             return DATA_SISWA_AWAL.map((name, index) => ({
               id: index + 1,
               name: name,
               paidBooks: [], 
               partialPayments: {},
+              paymentDates: [],
               lastUpdate: '-'
             }));
           });
@@ -849,11 +868,23 @@
                   newPartialPayments[bookId] = nominal;
               }
 
+              const hasAnyPayment = newPaidBooks.length > 0 || Object.keys(newPartialPayments).length > 0;
+              let newPaymentDates = [...(student.paymentDates || [])];
+              
+              if (nominal > 0 && !newPaymentDates.includes(now)) {
+                  newPaymentDates.push(now);
+              }
+              
+              if (!hasAnyPayment) {
+                  newPaymentDates = []; // Reset jika semua pembayaran dihapus
+              }
+
               return { 
                   ...student, 
                   paidBooks: newPaidBooks, 
                   partialPayments: newPartialPayments,
-                  lastUpdate: (newPaidBooks.length > 0 || Object.keys(newPartialPayments).length > 0) ? now : '-' 
+                  paymentDates: newPaymentDates,
+                  lastUpdate: hasAnyPayment ? now : '-' 
               };
             }));
           };
@@ -882,7 +913,8 @@
                           // Compatibility check untuk file backup versi sebelumnya
                           const validatedStudents = parsedData.students.map(s => ({
                               ...s,
-                              partialPayments: s.partialPayments || {}
+                              partialPayments: s.partialPayments || {},
+                              paymentDates: s.paymentDates || (s.lastUpdate && s.lastUpdate !== '-' ? [s.lastUpdate] : [])
                           }));
                           setStudents(validatedStudents);
                           if (parsedData.signature) { setSignatureImg(parsedData.signature); }
