@@ -99,6 +99,7 @@
           { id: 'pjok', name: 'PJOK', price: 10000 },
           { id: 'senirupa', name: 'Seni Rupa', price: 10000 },
           { id: 'bjawa', name: 'B. Jawa', price: 10000 },
+          { id: 'map_rapot', name: 'MAP RAPOT', price: 33000 },
         ];
 
         const DATA_SISWA_AWAL = [
@@ -372,7 +373,7 @@
                     {/* DAFTAR BUKU */}
                     <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
                        <div className="bg-gray-50 p-3 border-b border-gray-100">
-                          <h3 className="text-sm font-bold text-gray-700">Daftar Buku LKS 2026</h3>
+                          <h3 className="text-sm font-bold text-gray-700">Daftar Tagihan LKS & MAP</h3>
                        </div>
                        {DATA_BUKU.map((buku) => {
                          const isPaid = activeStudent.paidBooks.includes(buku.id);
@@ -549,7 +550,7 @@
                         <div className="border-b-2 border-double border-gray-800 pb-2 mb-4 flex justify-between items-end">
                            <div>
                               <h1 className="text-lg font-bold text-gray-900 tracking-wider">KWITANSI</h1>
-                              <p className="text-[10px] italic">Pembayaran Buku LKS Kelas 1</p>
+                              <p className="text-[10px] italic">Pembayaran Keuangan Kelas 1</p>
                            </div>
                            <div className="text-right"><p className="font-bold">No: {noKwitansi}</p></div>
                         </div>
