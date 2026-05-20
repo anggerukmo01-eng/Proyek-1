@@ -89,9 +89,10 @@
         const CalendarCheck = (props) => <IconWrapper {...props}><rect width="18" height="18" x="3" y="4" rx="2" ry="2"/><line x1="16" x2="16" y1="2" y2="6"/><line x1="8" x2="8" y1="2" y2="6"/><line x1="3" x2="21" y1="10" y2="10"/><path d="m9 16 2 2 4-4"/></IconWrapper>;
         const CalculatorIcon = (props) => <IconWrapper {...props}><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></IconWrapper>;
         const AlertCircle = (props) => <IconWrapper {...props}><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></IconWrapper>;
+        const Settings = (props) => <IconWrapper {...props}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></IconWrapper>;
 
-        // --- DATA KONSTAN ---
-        const DATA_BUKU = [
+        // --- DATA KONSTAN (Nilai Awal) ---
+        const DEFAULT_DATA_BUKU = [
           { id: 'lks_fatonah', name: 'LKS Fatonah', price: 10000 },
           { id: 'btq', name: 'BTQ', price: 8000 },
           { id: 'pancasila', name: 'Pend. Pancasila', price: 10000 },
@@ -111,8 +112,6 @@
           "Maulana Yusuf Alfarizki", "Muhammad Abdullah Muzaki", "Rafasya Alvin Faaz", 
           "Randy Prasetya", "Rivandra Luja Anugrah", "Wisnu Arya Kencana", "Yusuf Afka Riansyah"
         ];
-
-        const TOTAL_TAGIHAN_PER_SISWA = DATA_BUKU.reduce((acc, curr) => acc + curr.price, 0);
 
         // --- HELPER FUNCTIONS ---
         function terbilang(nilai) {
@@ -139,17 +138,36 @@
 
         // --- SUB COMPONENTS ---
 
-        const BerandaView = ({ students, handleBackup, handleRestore }) => {
-            const totalSeharusnya = students.length * TOTAL_TAGIHAN_PER_SISWA;
+        const BerandaView = ({ students, handleBackup, handleRestore, books, setBooks }) => {
+            const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+            const [tempBooks, setTempBooks] = useState([]);
+
+            const totalTagihanPerSiswa = books.reduce((acc, curr) => acc + curr.price, 0);
+            const totalSeharusnya = students.length * totalTagihanPerSiswa;
+            
             const totalTerkumpul = students.reduce((acc, student) => {
-              const full = student.paidBooks.reduce((sum, bookId) => sum + (DATA_BUKU.find(b => b.id === bookId)?.price || 0), 0);
+              const full = student.paidBooks.reduce((sum, bookId) => sum + (books.find(b => b.id === bookId)?.price || 0), 0);
               const partial = Object.values(student.partialPayments || {}).reduce((sum, amt) => sum + Number(amt), 0);
               return acc + full + partial;
             }, 0);
             
-            const persentase = Math.round((totalTerkumpul / totalSeharusnya) * 100);
+            const persentase = totalSeharusnya > 0 ? Math.round((totalTerkumpul / totalSeharusnya) * 100) : 0;
             const belumBayarSamaSekali = students.filter(s => s.paidBooks.length === 0 && Object.keys(s.partialPayments || {}).length === 0);
-            const siswaLunas = students.filter(s => s.paidBooks.length === DATA_BUKU.length);
+            const siswaLunas = students.filter(s => s.paidBooks.length === books.length);
+
+            const openSettings = () => {
+                setTempBooks([...books]);
+                setIsSettingsOpen(true);
+            };
+
+            const saveSettings = () => {
+                setBooks(tempBooks);
+                setIsSettingsOpen(false);
+            };
+
+            const updateTempBookPrice = (id, newPrice) => {
+                setTempBooks(prev => prev.map(b => b.id === id ? { ...b, price: Number(newPrice) } : b));
+            };
 
             return (
               <div className="space-y-6 pb-24 animate-in fade-in duration-500">
@@ -240,13 +258,22 @@
                   )}
                 </div>
 
-                {/* Data Management */}
+                {/* Data Management & Settings */}
                 <div className="px-4 pt-4 border-t border-gray-200 mt-8">
                    <h3 className="text-gray-800 font-bold text-lg mb-3 flex items-center">
                       <Database size={20} className="text-gray-600 mr-2" />
                       Manajemen Data
                    </h3>
                    <div className="bg-white p-4 rounded-2xl shadow-sm border border-gray-200 space-y-4">
+                      
+                      <button onClick={openSettings} className="w-full flex items-center justify-between bg-blue-50 hover:bg-blue-100 border border-blue-200 p-4 rounded-xl transition-colors text-left">
+                         <div>
+                            <p className="font-bold text-blue-800 text-sm">Pengaturan Harga</p>
+                            <p className="text-xs text-blue-600 mt-1">Ubah harga buku & MAP Rapot.</p>
+                         </div>
+                         <Settings className="text-blue-600" size={24} />
+                      </button>
+
                       <button onClick={handleBackup} className="w-full flex items-center justify-between bg-teal-50 hover:bg-teal-100 border border-teal-200 p-4 rounded-xl transition-colors text-left">
                          <div>
                             <p className="font-bold text-teal-800 text-sm">Backup Data (Simpan)</p>
@@ -268,20 +295,64 @@
                       <p className="text-[10px] text-gray-400 text-center italic mt-2">*Gunakan fitur ini jika ingin memindahkan data ke HP lain.</p>
                    </div>
                 </div>
+
+                {/* MODAL PENGATURAN HARGA */}
+                {isSettingsOpen && (
+                    <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
+                        <div className="bg-white rounded-2xl w-full max-w-sm max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-200">
+                            <div className="bg-blue-600 p-4 text-white flex justify-between items-center rounded-t-2xl">
+                                <h3 className="font-bold">Pengaturan Harga Item</h3>
+                                <button onClick={() => setIsSettingsOpen(false)}><XCircle size={20}/></button>
+                            </div>
+                            <div className="p-4 overflow-y-auto flex-1 space-y-3">
+                                {tempBooks.map(buku => (
+                                    <div key={buku.id} className="flex justify-between items-center bg-gray-50 p-3 rounded-xl border border-gray-200">
+                                        <span className="text-gray-700 text-sm font-bold flex-1">{buku.name}</span>
+                                        <div className="relative w-32 shrink-0">
+                                            <span className="absolute left-2 top-1/2 -translate-y-1/2 text-gray-500 font-bold text-xs">Rp</span>
+                                            <input 
+                                                type="number" 
+                                                inputMode="numeric"
+                                                value={buku.price}
+                                                onChange={(e) => updateTempBookPrice(buku.id, e.target.value)}
+                                                className="w-full pl-7 pr-2 py-2 border-2 border-gray-200 rounded-lg font-bold text-sm text-gray-800 focus:border-blue-500 focus:ring-0 outline-none transition-colors text-right"
+                                            />
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                            <div className="p-4 bg-gray-50 flex gap-3 border-t border-gray-200 rounded-b-2xl">
+                                <button 
+                                    onClick={() => setIsSettingsOpen(false)}
+                                    className="flex-1 py-3 bg-white border border-gray-300 text-gray-700 rounded-xl font-bold shadow-sm active:bg-gray-100"
+                                >
+                                    Batal
+                                </button>
+                                <button 
+                                    onClick={saveSettings}
+                                    className="flex-1 py-3 bg-blue-600 text-white rounded-xl font-bold shadow-sm active:bg-blue-700"
+                                >
+                                    Simpan Harga
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                )}
               </div>
             );
         };
 
-        const PembayaranView = ({ students, handleUpdatePayment }) => {
+        const PembayaranView = ({ students, handleUpdatePayment, books }) => {
             const [selectedStudentId, setSelectedStudentId] = useState("");
             const [paymentModal, setPaymentModal] = useState({ isOpen: false, book: null, nominal: "" });
             const [uncheckModal, setUncheckModal] = useState({ isOpen: false, book: null });
             
             const activeStudent = useMemo(() => students.find(s => s.id === parseInt(selectedStudentId)), [selectedStudentId, students]);
+            const totalTagihanPerSiswa = books.reduce((acc, curr) => acc + curr.price, 0);
 
             const hitungTotalSiswa = (siswa) => {
                if(!siswa) return 0;
-               const full = siswa.paidBooks.reduce((sum, bookId) => sum + (DATA_BUKU.find(b => b.id === bookId)?.price || 0), 0);
+               const full = siswa.paidBooks.reduce((sum, bookId) => sum + (books.find(b => b.id === bookId)?.price || 0), 0);
                const partial = Object.values(siswa.partialPayments || {}).reduce((sum, amt) => sum + Number(amt), 0);
                return full + partial;
             };
@@ -323,7 +394,7 @@
                       </div>
                       <div className="text-right">
                         <p className="text-xs text-gray-500">Sisa Tagihan</p>
-                        <p className="text-sm font-medium text-red-500">{formatRupiah(TOTAL_TAGIHAN_PER_SISWA - hitungTotalSiswa(activeStudent))}</p>
+                        <p className="text-sm font-medium text-red-500">{formatRupiah(totalTagihanPerSiswa - hitungTotalSiswa(activeStudent))}</p>
                       </div>
                     </div>
 
@@ -333,7 +404,7 @@
                           <h3 className="text-sm font-bold text-gray-700">Daftar Tagihan LKS & MAP</h3>
                           <span className="text-[10px] bg-gray-200 text-gray-600 px-2 py-1 rounded font-bold">Klik untuk bayar</span>
                        </div>
-                       {DATA_BUKU.map((buku) => {
+                       {books.map((buku) => {
                          const isPaid = activeStudent.paidBooks.includes(buku.id);
                          const partialAmt = activeStudent.partialPayments?.[buku.id] || 0;
                          const isPartial = partialAmt > 0 && !isPaid;
@@ -496,7 +567,7 @@
             );
         };
 
-        const DetailView = ({ students }) => (
+        const DetailView = ({ students, books }) => (
             <div className="pb-24 animate-in slide-in-from-right duration-300">
               <header className="bg-white sticky top-0 z-10 p-4 shadow-sm border-b">
                  <h2 className="text-xl font-bold text-gray-800">Detail Rekapitulasi</h2>
@@ -504,9 +575,9 @@
               </header>
               <div className="p-4 space-y-4">
                 {students.map((student) => {
-                   const studentTotal = student.paidBooks.reduce((sum, bookId) => sum + (DATA_BUKU.find(b => b.id === bookId)?.price || 0), 0) + 
+                   const studentTotal = student.paidBooks.reduce((sum, bookId) => sum + (books.find(b => b.id === bookId)?.price || 0), 0) + 
                                         Object.values(student.partialPayments || {}).reduce((sum, amt) => sum + Number(amt), 0);
-                   const isLunas = student.paidBooks.length === DATA_BUKU.length;
+                   const isLunas = student.paidBooks.length === books.length;
                    return (
                      <div key={student.id} className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
                        <div className="bg-gray-50 p-3 border-b border-gray-200 flex justify-between items-center">
@@ -518,7 +589,7 @@
                        </div>
                        <div className="p-3">
                          <div className="grid grid-cols-2 gap-2 mb-3">
-                           {DATA_BUKU.map(buku => {
+                           {books.map(buku => {
                              const paid = student.paidBooks.includes(buku.id);
                              const partial = student.partialPayments?.[buku.id] || 0;
                              return (
@@ -561,11 +632,11 @@
             </div>
         );
 
-        const TunggakanView = ({ students }) => {
+        const TunggakanView = ({ students, books }) => {
             // Hitung total tunggakan keseluruhan
             const totalTunggakan = students.reduce((acc, student) => {
                 let studentMissing = 0;
-                DATA_BUKU.forEach(buku => {
+                books.forEach(buku => {
                     if (!student.paidBooks.includes(buku.id)) {
                         const partial = student.partialPayments?.[buku.id] || 0;
                         studentMissing += (buku.price - partial);
@@ -575,7 +646,7 @@
             }, 0);
 
             // Filter hanya siswa yang belum lunas semuanya
-            const studentsWithTunggakan = students.filter(s => s.paidBooks.length < DATA_BUKU.length);
+            const studentsWithTunggakan = students.filter(s => s.paidBooks.length < books.length);
 
             return (
                 <div className="pb-24 animate-in slide-in-from-right duration-300">
@@ -604,7 +675,7 @@
                         ) : (
                             studentsWithTunggakan.map(student => {
                                 // Cari buku yang belum lunas
-                                const missingItems = DATA_BUKU.filter(b => !student.paidBooks.includes(b.id));
+                                const missingItems = books.filter(b => !student.paidBooks.includes(b.id));
                                 // Hitung total kekurangan untuk siswa ini
                                 const studentTotalMissing = missingItems.reduce((sum, b) => sum + (b.price - (student.partialPayments?.[b.id] || 0)), 0);
 
@@ -651,7 +722,7 @@
             );
         };
 
-        const KwitansiView = ({ students, signatureImg, setSignatureImg }) => {
+        const KwitansiView = ({ students, signatureImg, setSignatureImg, books }) => {
             const [selectedStudentId, setSelectedStudentId] = useState("");
             const [tempat, setTempat] = useState("Sekolah");
             const [tanggal, setTanggal] = useState(new Date().toISOString().split('T')[0]);
@@ -665,14 +736,14 @@
             }, [namaPenerima]);
 
             const totalBayar = activeStudent ? (
-                activeStudent.paidBooks.reduce((sum, bookId) => sum + (DATA_BUKU.find(b => b.id === bookId)?.price || 0), 0) +
+                activeStudent.paidBooks.reduce((sum, bookId) => sum + (books.find(b => b.id === bookId)?.price || 0), 0) +
                 Object.values(activeStudent.partialPayments || {}).reduce((sum, amt) => sum + Number(amt), 0)
             ) : 0;
             const noKwitansi = activeStudent ? `KW/2026/${String(activeStudent.id).padStart(3, '0')}` : "...";
 
             // List item lunas dan cicilan
-            const paidItems = activeStudent ? activeStudent.paidBooks.map(bid => DATA_BUKU.find(b => b.id === bid)?.name) : [];
-            const partialItems = activeStudent ? Object.keys(activeStudent.partialPayments || {}).map(bid => DATA_BUKU.find(b => b.id === bid)?.name + " (Cicil)") : [];
+            const paidItems = activeStudent ? activeStudent.paidBooks.map(bid => books.find(b => b.id === bid)?.name) : [];
+            const partialItems = activeStudent ? Object.keys(activeStudent.partialPayments || {}).map(bid => books.find(b => b.id === bid)?.name + " (Cicil)") : [];
             const allItems = [...paidItems, ...partialItems];
 
             const handleDownloadImage = async () => {
@@ -819,6 +890,13 @@
         function App() {
           const [activeTab, setActiveTab] = useState('beranda');
           
+          // State Buku untuk menyimpan harga yang bisa diedit
+          const [books, setBooks] = useState(() => {
+              const savedBooks = localStorage.getItem('dataBukuKelas1');
+              if (savedBooks) return JSON.parse(savedBooks);
+              return DEFAULT_DATA_BUKU;
+          });
+
           const [students, setStudents] = useState(() => {
             const saved = localStorage.getItem('dataKeuanganKelas1');
             if (saved) {
@@ -844,6 +922,8 @@
             return localStorage.getItem('guruSignature') || null;
           });
 
+          // Efek Simpan Otomatis
+          useEffect(() => { localStorage.setItem('dataBukuKelas1', JSON.stringify(books)); }, [books]);
           useEffect(() => { localStorage.setItem('dataKeuanganKelas1', JSON.stringify(students)); }, [students]);
           useEffect(() => {
             if (signatureImg) { localStorage.setItem('guruSignature', signatureImg); }
@@ -890,7 +970,7 @@
           };
 
           const handleBackup = () => {
-             const dataToSave = { students, signature: signatureImg, appVersion: "2.0", timestamp: new Date().toISOString() };
+             const dataToSave = { students, books, signature: signatureImg, appVersion: "2.1", timestamp: new Date().toISOString() };
              const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataToSave));
              const downloadAnchorNode = document.createElement('a');
              downloadAnchorNode.setAttribute("href", dataStr);
@@ -917,6 +997,12 @@
                               paymentDates: s.paymentDates || (s.lastUpdate && s.lastUpdate !== '-' ? [s.lastUpdate] : [])
                           }));
                           setStudents(validatedStudents);
+                          
+                          // Restore books jika ada (untuk versi aplikasi 2.1+)
+                          if (parsedData.books && Array.isArray(parsedData.books)) {
+                              setBooks(parsedData.books);
+                          }
+                          
                           if (parsedData.signature) { setSignatureImg(parsedData.signature); }
                           alert("Sukses! Data berhasil dikembalikan.");
                       }
@@ -929,11 +1015,11 @@
           return (
             <div className="min-h-screen bg-gray-50 font-sans text-gray-800 max-w-md mx-auto shadow-2xl overflow-hidden relative">
               <main className="h-full min-h-screen">
-                {activeTab === 'beranda' && <BerandaView students={students} handleBackup={handleBackup} handleRestore={handleRestore} />}
-                {activeTab === 'pembayaran' && <PembayaranView students={students} handleUpdatePayment={handleUpdatePayment} />}
-                {activeTab === 'detail' && <DetailView students={students} />}
-                {activeTab === 'tunggakan' && <TunggakanView students={students} />}
-                {activeTab === 'kwitansi' && <KwitansiView students={students} signatureImg={signatureImg} setSignatureImg={setSignatureImg} />}
+                {activeTab === 'beranda' && <BerandaView students={students} handleBackup={handleBackup} handleRestore={handleRestore} books={books} setBooks={setBooks} />}
+                {activeTab === 'pembayaran' && <PembayaranView students={students} handleUpdatePayment={handleUpdatePayment} books={books} />}
+                {activeTab === 'detail' && <DetailView students={students} books={books} />}
+                {activeTab === 'tunggakan' && <TunggakanView students={students} books={books} />}
+                {activeTab === 'kwitansi' && <KwitansiView students={students} signatureImg={signatureImg} setSignatureImg={setSignatureImg} books={books} />}
               </main>
 
               <nav className="fixed bottom-0 left-0 right-0 max-w-md mx-auto bg-white border-t border-gray-200 flex justify-around items-center h-20 px-2 pb-2 z-50">
