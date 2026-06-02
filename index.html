@@ -90,6 +90,7 @@
         const CalculatorIcon = (props) => <IconWrapper {...props}><rect width="16" height="20" x="4" y="2" rx="2"/><line x1="8" x2="16" y1="6" y2="6"/><line x1="16" x2="16" y1="14" y2="18"/><path d="M16 10h.01"/><path d="M12 10h.01"/><path d="M8 10h.01"/><path d="M12 14h.01"/><path d="M8 14h.01"/><path d="M12 18h.01"/><path d="M8 18h.01"/></IconWrapper>;
         const AlertCircle = (props) => <IconWrapper {...props}><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></IconWrapper>;
         const Settings = (props) => <IconWrapper {...props}><path d="M12.22 2h-.44a2 2 0 0 0-2 2v.18a2 2 0 0 1-1 1.73l-.43.25a2 2 0 0 1-2 0l-.15-.08a2 2 0 0 0-2.73.73l-.22.38a2 2 0 0 0 .73 2.73l.15.1a2 2 0 0 1 1 1.72v.51a2 2 0 0 1-1 1.74l-.15.09a2 2 0 0 0-.73 2.73l.22.38a2 2 0 0 0 2.73.73l.15-.08a2 2 0 0 1 2 0l.43.25a2 2 0 0 1 1 1.73V20a2 2 0 0 0 2 2h.44a2 2 0 0 0 2-2v-.18a2 2 0 0 1 1-1.73l.43-.25a2 2 0 0 1 2 0l.15.08a2 2 0 0 0 2.73-.73l.22-.39a2 2 0 0 0-.73-2.73l-.15-.08a2 2 0 0 1-1-1.74v-.5a2 2 0 0 1 1-1.74l.15-.09a2 2 0 0 0 .73-2.73l-.22-.38a2 2 0 0 0-2.73-.73l-.15.08a2 2 0 0 1-2 0l-.43-.25a2 2 0 0 1-1-1.73V4a2 2 0 0 0-2-2z"/><circle cx="12" cy="12" r="3"/></IconWrapper>;
+        const Users = (props) => <IconWrapper {...props}><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M22 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></IconWrapper>;
 
         // --- DATA KONSTAN (Nilai Awal) ---
         const DEFAULT_DATA_BUKU = [
@@ -181,14 +182,14 @@
                   <h1 className="text-2xl font-bold">Keuangan Kelas 1</h1>
                   <p className="opacity-90 text-sm mt-1">Laporan Buku LKS & Penunjang</p>
                   <div className="mt-6 bg-white/10 backdrop-blur-md p-4 rounded-xl border border-white/20">
-                    <p className="text-xs font-medium uppercase tracking-wider opacity-80">Total Terkumpul</p>
+                    <p className="text-xs font-medium uppercase tracking-wider opacity-80">Total Terkumpul (Pribadi)</p>
                     <p className="text-3xl font-extrabold mt-1">{formatRupiah(totalTerkumpul)}</p>
                     <div className="w-full bg-black/20 h-2 rounded-full mt-3 overflow-hidden">
                       <div className="bg-white h-full transition-all duration-1000" style={{ width: `${persentase}%` }}></div>
                     </div>
                     <div className="flex justify-between text-xs mt-2 opacity-80">
                       <span>Progress: {persentase}%</span>
-                      <span>Target: {formatRupiah(totalSeharusnya)}</span>
+                      <span>Target Total: {formatRupiah(totalSeharusnya)}</span>
                     </div>
                   </div>
                 </header>
@@ -348,11 +349,18 @@
             );
         };
 
-        const PembayaranView = ({ students, handleUpdatePayment, books }) => {
+        const PembayaranView = ({ students, handleUpdatePayment, handleBulkUpdatePayment, books }) => {
+            const [viewMode, setViewMode] = useState("single"); // "single" atau "bulk"
             const [selectedStudentId, setSelectedStudentId] = useState("");
-            const [paymentModal, setPaymentModal] = useState({ isOpen: false, book: null, nominal: "", isExternal: false, receiver: "" });
-            const [uncheckModal, setUncheckModal] = useState({ isOpen: false, book: null });
             
+            // --- STATE UNTUK MODAL DETAIL & EDIT PEMBAYARAN ---
+            const [paymentModal, setPaymentModal] = useState({ isOpen: false, book: null, nominal: "", isExternal: false, receiver: "", isAlreadyPaid: false });
+            
+            // --- STATE UNTUK BAYAR MASAL / GURU LAIN ---
+            const [bulkReceiver, setBulkReceiver] = useState("");
+            const [bulkSelectedBooks, setBulkSelectedBooks] = useState([]);
+            const [bulkSelectedStudents, setBulkSelectedStudents] = useState([]);
+
             const activeStudent = useMemo(() => students.find(s => s.id === parseInt(selectedStudentId)), [selectedStudentId, students]);
             const totalTagihanPerSiswa = books.reduce((acc, curr) => acc + curr.price, 0);
 
@@ -365,118 +373,257 @@
 
             const onClickBuku = (buku) => {
                 const isPaid = activeStudent.paidBooks.includes(buku.id);
-                const partialAmt = activeStudent.partialPayments?.[buku.id];
+                const partialAmt = activeStudent.partialPayments?.[buku.id] || "";
                 const extReceiver = activeStudent.externalReceivers?.[buku.id] || "";
                 
-                if (isPaid) {
-                    setUncheckModal({ isOpen: true, book: buku });
-                } else if (partialAmt) {
-                    setPaymentModal({ isOpen: true, book: buku, nominal: partialAmt.toString(), isExternal: !!extReceiver, receiver: extReceiver });
-                } else {
-                    setPaymentModal({ isOpen: true, book: buku, nominal: "", isExternal: false, receiver: "" });
+                // Buka modal edit status pembayaran terpadu
+                setPaymentModal({
+                    isOpen: true,
+                    book: buku,
+                    nominal: isPaid ? buku.price.toString() : partialAmt.toString(),
+                    isExternal: !!extReceiver,
+                    receiver: extReceiver,
+                    isAlreadyPaid: isPaid || Number(partialAmt) > 0
+                });
+            };
+
+            // Toggle Pilihan Buku untuk Masal
+            const toggleBulkBook = (id) => {
+                setBulkSelectedBooks(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
+            };
+
+            // Toggle Pilihan Murid untuk Masal
+            const toggleBulkStudent = (id) => {
+                setBulkSelectedStudents(prev => prev.includes(id) ? prev.filter(item => item !== id) : [...prev, id]);
+            };
+
+            const selectAllBulkStudents = () => {
+                setBulkSelectedStudents(students.map(s => s.id));
+            };
+
+            const deselectAllBulkStudents = () => {
+                setBulkSelectedStudents([]);
+            };
+
+            const handleSimpanMasal = () => {
+                if (!bulkReceiver.trim()) {
+                    alert("Harap masukkan nama guru/penerima pembayaran.");
+                    return;
+                }
+                if (bulkSelectedBooks.length === 0) {
+                    alert("Pilih minimal satu buku/tagihan.");
+                    return;
+                }
+                if (bulkSelectedStudents.length === 0) {
+                    alert("Pilih minimal satu siswa.");
+                    return;
+                }
+
+                if (confirm(`Apakah Anda yakin ingin menandai lunas ${bulkSelectedBooks.length} tagihan secara masal ke "${bulkReceiver}" untuk ${bulkSelectedStudents.length} siswa?`)) {
+                    handleBulkUpdatePayment(bulkSelectedStudents, bulkSelectedBooks, bulkReceiver);
+                    alert("Pembayaran masal berhasil disimpan!");
+                    
+                    // Reset pilihan setelah simpan
+                    setBulkSelectedBooks([]);
+                    setBulkSelectedStudents([]);
+                    setBulkReceiver("");
                 }
             };
 
             return (
               <div className="pb-24 animate-in slide-in-from-right duration-300 relative">
-                <header className="bg-white sticky top-0 z-10 p-4 shadow-sm border-b">
-                   <h2 className="text-xl font-bold text-gray-800 mb-4">Input Pembayaran</h2>
-                   <label className="block text-sm font-medium text-gray-500 mb-1">Pilih Nama Siswa</label>
-                   <select 
-                      className="w-full p-3 bg-gray-50 border border-gray-200 rounded-xl text-gray-800 focus:outline-none focus:ring-2 focus:ring-teal-500"
-                      onChange={(e) => setSelectedStudentId(e.target.value)}
-                      value={selectedStudentId}
-                   >
-                     <option value="">-- Pilih Siswa --</option>
-                     {students.map(s => <option key={s.id} value={s.id}>{s.id}. {s.name}</option>)}
-                   </select>
+                <header className="bg-white sticky top-0 z-10 shadow-sm border-b">
+                   <div className="p-4 flex justify-between items-center pb-2">
+                       <h2 className="text-xl font-bold text-gray-800">Catat Pembayaran</h2>
+                   </div>
+                   
+                   {/* TAB PEMILIHAN METODE */}
+                   <div className="flex border-t border-gray-100">
+                       <button 
+                           onClick={() => setViewMode("single")}
+                           className={`flex-1 py-3 text-center text-sm font-bold border-b-2 transition-all ${viewMode === "single" ? "border-teal-600 text-teal-600 bg-teal-50/20" : "border-transparent text-gray-400"}`}
+                       >
+                           Satu Siswa
+                       </button>
+                       <button 
+                           onClick={() => setViewMode("bulk")}
+                           className={`flex-1 py-3 text-center text-sm font-bold border-b-2 transition-all ${viewMode === "bulk" ? "border-teal-600 text-teal-600 bg-teal-50/20" : "border-transparent text-gray-400"}`}
+                       >
+                           Masal / Guru Lain 👥
+                       </button>
+                   </div>
                 </header>
 
-                {activeStudent ? (
+                {viewMode === "single" ? (
+                  // --- MODE SINGLE SISWA ---
                   <div className="p-4 space-y-4">
-                    <div className="bg-teal-50 p-4 rounded-xl border border-teal-100 flex justify-between items-center">
-                      <div>
-                        <p className="text-xs text-teal-600 uppercase font-bold">Total Terbayar</p>
-                        <p className="text-xl font-bold text-teal-800">{formatRupiah(hitungTotalSiswa(activeStudent))}</p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-xs text-gray-500">Sisa Tagihan</p>
-                        <p className="text-sm font-medium text-red-500">{formatRupiah(totalTagihanPerSiswa - hitungTotalSiswa(activeStudent))}</p>
-                      </div>
+                    <div>
+                       <label className="block text-xs font-bold text-gray-500 mb-1">Pilih Nama Siswa</label>
+                       <select 
+                          className="w-full p-3 bg-white border border-gray-200 rounded-xl text-gray-800 font-medium focus:outline-none focus:ring-2 focus:ring-teal-500 shadow-sm"
+                          onChange={(e) => setSelectedStudentId(e.target.value)}
+                          value={selectedStudentId}
+                       >
+                         <option value="">-- Pilih Siswa --</option>
+                         {students.map(s => <option key={s.id} value={s.id}>{s.id}. {s.name}</option>)}
+                       </select>
                     </div>
 
-                    {/* DAFTAR BUKU */}
-                    <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-                       <div className="bg-gray-50 p-3 border-b border-gray-100 flex items-center justify-between">
-                          <h3 className="text-sm font-bold text-gray-700">Daftar Tagihan LKS & MAP</h3>
-                          <span className="text-[10px] bg-gray-200 text-gray-600 px-2 py-1 rounded font-bold">Klik untuk bayar</span>
-                       </div>
-                       {books.map((buku) => {
-                         const isPaid = activeStudent.paidBooks.includes(buku.id);
-                         const partialAmt = activeStudent.partialPayments?.[buku.id] || 0;
-                         const isPartial = partialAmt > 0 && !isPaid;
-                         
-                         return (
-                           <div key={buku.id} onClick={() => onClickBuku(buku)}
-                             className={`p-4 flex items-center justify-between border-b border-gray-50 cursor-pointer active:bg-gray-50 transition-colors select-none ${isPaid ? 'bg-green-50/30' : isPartial ? 'bg-orange-50/30' : ''}`}
-                           >
-                              <div className="flex items-center gap-3">
-                                <div className={`w-6 h-6 rounded border flex items-center justify-center transition-colors ${isPaid ? 'bg-teal-500 border-teal-500' : 'border-gray-300 bg-white'}`}>
-                                   {isPaid && <CheckCircle2 size={16} className="text-white" />}
-                                </div>
-                                <div>
-                                  <p className={`font-medium ${isPaid ? 'text-teal-900' : 'text-gray-700'}`}>{buku.name}</p>
-                                  <p className="text-xs text-gray-500">{formatRupiah(buku.price)}</p>
-                                </div>
-                              </div>
-                              <div className={`text-xs font-medium px-2 py-1 rounded text-right ${isPaid ? 'bg-gray-100 text-gray-600' : isPartial ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'}`}>
-                                {isPaid ? (
-                                    <div className="flex flex-col items-end">
-                                        <span>LUNAS</span>
-                                        {activeStudent.externalReceivers?.[buku.id] && <span className="text-[9px] text-blue-600 mt-0.5 tracking-tight">ke {activeStudent.externalReceivers[buku.id]}</span>}
-                                    </div>
-                                ) : isPartial ? (
-                                    <div className="flex flex-col items-end">
-                                        <span>DICICIL</span>
-                                        {activeStudent.externalReceivers?.[buku.id] && <span className="text-[9px] text-blue-600 mt-0.5 tracking-tight">ke {activeStudent.externalReceivers[buku.id]}</span>}
-                                        <span className="text-[9px] opacity-80 mt-0.5 tracking-tight">Sisa {formatRupiah(buku.price - partialAmt)}</span>
-                                    </div>
-                                ) : (
-                                    'BELUM'
-                                )}
-                              </div>
+                    {activeStudent ? (
+                      <div className="space-y-4 animate-in fade-in">
+                        <div className="bg-teal-50 p-4 rounded-xl border border-teal-100 flex justify-between items-center shadow-sm">
+                          <div>
+                            <p className="text-xs text-teal-600 uppercase font-bold">Total Terbayar</p>
+                            <p className="text-xl font-bold text-teal-800">{formatRupiah(hitungTotalSiswa(activeStudent))}</p>
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-gray-500">Sisa Tagihan</p>
+                            <p className="text-sm font-medium text-red-500">{formatRupiah(totalTagihanPerSiswa - hitungTotalSiswa(activeStudent))}</p>
+                          </div>
+                        </div>
+
+                        {/* DAFTAR BUKU */}
+                        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+                           <div className="bg-gray-50 p-3 border-b border-gray-100 flex items-center justify-between">
+                              <h3 className="text-xs font-bold text-gray-700">Daftar Tagihan LKS & MAP</h3>
+                              <span className="text-[10px] bg-teal-100 text-teal-700 px-2 py-1 rounded font-bold">Klik untuk kelola</span>
                            </div>
-                         );
-                       })}
-                    </div>
+                           {books.map((buku) => {
+                             const isPaid = activeStudent.paidBooks.includes(buku.id);
+                             const partialAmt = activeStudent.partialPayments?.[buku.id] || 0;
+                             const isPartial = partialAmt > 0 && !isPaid;
+                             
+                             return (
+                               <div key={buku.id} onClick={() => onClickBuku(buku)}
+                                 className={`p-4 flex items-center justify-between border-b border-gray-50 cursor-pointer active:bg-gray-50 transition-colors select-none ${isPaid ? 'bg-green-50/30' : isPartial ? 'bg-orange-50/30' : ''}`}
+                               >
+                                  <div className="flex items-center gap-3">
+                                    <div className={`w-6 h-6 rounded border flex items-center justify-center transition-colors ${isPaid ? 'bg-teal-500 border-teal-500' : 'border-gray-300 bg-white'}`}>
+                                       {isPaid && <CheckCircle2 size={16} className="text-white" />}
+                                    </div>
+                                    <div>
+                                      <p className={`font-semibold ${isPaid ? 'text-teal-900' : 'text-gray-700'}`}>{buku.name}</p>
+                                      <p className="text-xs text-gray-500">{formatRupiah(buku.price)}</p>
+                                    </div>
+                                  </div>
+                                  <div className={`text-xs font-bold px-2 py-1 rounded text-right ${isPaid ? 'bg-green-100 text-green-700' : isPartial ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'}`}>
+                                    {isPaid ? (
+                                        <div className="flex flex-col items-end">
+                                            <span>LUNAS</span>
+                                            {activeStudent.externalReceivers?.[buku.id] && <span className="text-[9px] text-blue-600 mt-0.5 tracking-tight">ke: {activeStudent.externalReceivers[buku.id]}</span>}
+                                        </div>
+                                    ) : isPartial ? (
+                                        <div className="flex flex-col items-end">
+                                            <span>DICICIL</span>
+                                            {activeStudent.externalReceivers?.[buku.id] && <span className="text-[9px] text-blue-600 mt-0.5 tracking-tight">ke: {activeStudent.externalReceivers[buku.id]}</span>}
+                                            <span className="text-[9px] opacity-80 mt-0.5 tracking-tight">Sisa {formatRupiah(buku.price - partialAmt)}</span>
+                                        </div>
+                                    ) : (
+                                        'BELUM'
+                                    )}
+                                  </div>
+                               </div>
+                             );
+                           })}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center h-[45vh] text-gray-400">
+                        <BookOpen size={48} className="mb-4 opacity-50" />
+                        <p className="text-sm font-medium">Silakan pilih siswa terlebih dahulu</p>
+                      </div>
+                    )}
                   </div>
                 ) : (
-                  <div className="flex flex-col items-center justify-center h-[50vh] text-gray-400">
-                    <BookOpen size={48} className="mb-4 opacity-50" />
-                    <p>Silakan pilih siswa terlebih dahulu</p>
+                  // --- MODE MASAL / GURU LAIN ---
+                  <div className="p-4 space-y-4 animate-in fade-in">
+                      <div className="bg-white p-4 rounded-xl border border-gray-200 space-y-3 shadow-sm">
+                          <h3 className="text-sm font-bold text-gray-700">1. Nama Penerima (Guru Lain)</h3>
+                          <input 
+                              type="text" 
+                              value={bulkReceiver}
+                              onChange={(e) => setBulkReceiver(e.target.value)}
+                              placeholder="Contoh: Bu Retno (Agama) / Pak Dino (PJOK)" 
+                              className="w-full p-3 border border-gray-300 rounded-xl text-sm outline-none font-medium focus:border-teal-500 focus:ring-2 focus:ring-teal-100 transition-all"
+                          />
+                      </div>
+
+                      <div className="bg-white p-4 rounded-xl border border-gray-200 space-y-3 shadow-sm">
+                          <h3 className="text-sm font-bold text-gray-700">2. Pilih Tagihan / Buku</h3>
+                          <div className="grid grid-cols-2 gap-2">
+                              {books.map(buku => {
+                                  const selected = bulkSelectedBooks.includes(buku.id);
+                                  return (
+                                      <button 
+                                          key={buku.id}
+                                          onClick={() => toggleBulkBook(buku.id)}
+                                          className={`p-2 rounded-xl text-xs font-bold border transition-all text-left flex items-center justify-between ${selected ? 'bg-teal-50 border-teal-500 text-teal-700' : 'bg-gray-50 border-gray-200 text-gray-600'}`}
+                                      >
+                                          <span className="truncate pr-1">{buku.name}</span>
+                                          <div className={`w-3 h-3 rounded-full border shrink-0 ${selected ? 'bg-teal-500 border-teal-500' : 'border-gray-400 bg-white'}`}></div>
+                                      </button>
+                                  );
+                              })}
+                          </div>
+                      </div>
+
+                      <div className="bg-white p-4 rounded-xl border border-gray-200 space-y-3 shadow-sm">
+                          <div className="flex justify-between items-center">
+                              <h3 className="text-sm font-bold text-gray-700">3. Pilih Siswa ({bulkSelectedStudents.length})</h3>
+                              <div className="flex gap-2 text-[10px] font-bold">
+                                  <button onClick={selectAllBulkStudents} className="text-teal-600 bg-teal-50 px-2 py-1 rounded">Pilih Semua</button>
+                                  <button onClick={deselectAllBulkStudents} className="text-red-500 bg-red-50 px-2 py-1 rounded">Hapus Semua</button>
+                              </div>
+                          </div>
+
+                          <div className="max-h-60 overflow-y-auto border border-gray-100 rounded-xl p-2 space-y-1.5 bg-gray-50">
+                              {students.map(siswa => {
+                                  const selected = bulkSelectedStudents.includes(siswa.id);
+                                  return (
+                                      <div 
+                                          key={siswa.id} 
+                                          onClick={() => toggleBulkStudent(siswa.id)}
+                                          className={`p-2.5 rounded-lg flex items-center justify-between cursor-pointer select-none text-xs font-semibold border transition-all ${selected ? 'bg-white border-teal-500 shadow-sm text-teal-900' : 'bg-white border-transparent text-gray-700'}`}
+                                      >
+                                          <span className="truncate">{siswa.id}. {siswa.name}</span>
+                                          <div className={`w-4 h-4 rounded border flex items-center justify-center ${selected ? 'bg-teal-500 border-teal-500' : 'border-gray-300'}`}>
+                                              {selected && <span className="text-[9px] text-white">✓</span>}
+                                          </div>
+                                      </div>
+                                  );
+                              })}
+                          </div>
+                      </div>
+
+                      <button 
+                          onClick={handleSimpanMasal}
+                          className="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-4 rounded-2xl shadow-lg active:scale-95 transition-all text-sm"
+                      >
+                          Tandai Lunas Masal ke Guru Lain
+                      </button>
                   </div>
                 )}
 
-                {/* MODAL PEMBAYARAN */}
+                {/* --- MODAL EDIT PEMBAYARAN TERPADU (SATU SISWA) --- */}
                 {paymentModal.isOpen && (
                     <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
                         <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
                             <div className="bg-teal-600 p-4 text-white flex justify-between items-center">
-                                <h3 className="font-bold">Konfirmasi Pembayaran</h3>
-                                <button onClick={() => setPaymentModal({ isOpen: false, book: null, nominal: "", isExternal: false, receiver: "" })}><XCircle size={20}/></button>
+                                <h3 className="font-bold">Edit Status Pembayaran</h3>
+                                <button onClick={() => setPaymentModal({ isOpen: false, book: null, nominal: "", isExternal: false, receiver: "", isAlreadyPaid: false })}><XCircle size={20}/></button>
                             </div>
                             <div className="p-5 space-y-4">
                                 <div className="text-center mb-2">
-                                    <p className="text-gray-500 text-sm">Pembayaran Item</p>
+                                    <p className="text-gray-500 text-xs font-semibold">Toko LKS / MAP</p>
                                     <p className="font-bold text-lg text-gray-800">{paymentModal.book.name}</p>
                                 </div>
                                 <div className="flex justify-between items-center bg-gray-50 p-3 rounded-xl border border-gray-200">
-                                    <span className="text-gray-600 text-sm font-medium">Tagihan:</span>
-                                    <span className="font-bold text-lg text-teal-700">{formatRupiah(paymentModal.book.price)}</span>
+                                    <span className="text-gray-600 text-sm font-medium">Tagihan Buku:</span>
+                                    <span className="font-extrabold text-lg text-teal-700">{formatRupiah(paymentModal.book.price)}</span>
                                 </div>
                                 
                                 <div>
-                                    <label className="block text-xs font-bold text-gray-600 mb-2">Total Uang Diterima (Rp)</label>
+                                    <label className="block text-xs font-bold text-gray-600 mb-2">Total Uang yang Dibayarkan (Rp)</label>
                                     <div className="relative">
                                         <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-500 font-bold">Rp</span>
                                         <input 
@@ -486,13 +633,12 @@
                                             onChange={(e) => setPaymentModal({...paymentModal, nominal: e.target.value})}
                                             className="w-full pl-10 pr-4 py-3 border-2 border-gray-200 rounded-xl font-bold text-lg text-gray-800 focus:border-teal-500 focus:ring-0 outline-none transition-colors"
                                             placeholder="0"
-                                            autoFocus
                                         />
                                     </div>
                                 </div>
 
                                 <div className="bg-blue-50 p-3 rounded-xl border border-blue-100">
-                                    <label className="flex items-center gap-2 text-sm text-gray-700 font-medium cursor-pointer">
+                                    <label className="flex items-center gap-2 text-sm text-gray-700 font-bold cursor-pointer select-none">
                                         <input 
                                             type="checkbox" 
                                             checked={paymentModal.isExternal} 
@@ -506,8 +652,8 @@
                                             type="text" 
                                             value={paymentModal.receiver} 
                                             onChange={(e) => setPaymentModal({...paymentModal, receiver: e.target.value})} 
-                                            placeholder="Contoh: Pak Budi / Guru Mapel" 
-                                            className="mt-3 w-full p-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-blue-500" 
+                                            placeholder="Contoh: Pak Budi (PJOK) / Bu Retno" 
+                                            className="mt-3 w-full p-2.5 border border-gray-300 rounded-lg text-sm outline-none font-medium focus:border-blue-500" 
                                         />
                                     )}
                                 </div>
@@ -531,9 +677,9 @@
                                     } else {
                                         return (
                                             <div className="bg-green-50 text-green-700 p-3 rounded-xl border border-green-200 flex items-start gap-3 animate-in fade-in">
-                                                <CheckCircle2 size={20} className="shrink-0 mt-0.5" />
+                                                <CheckCircle2 size={20} className="shrink-0 mt-0.5 animate-bounce" />
                                                 <div>
-                                                    <p className="font-bold text-sm">LUNAS!</p>
+                                                    <p className="font-bold text-sm">STATUS: LUNAS!</p>
                                                     {bayar > harga && <p className="text-xs mt-0.5">Kembalian: {formatRupiah(bayar - harga)}</p>}
                                                 </div>
                                             </div>
@@ -542,55 +688,38 @@
                                 })()}
                             </div>
                             
-                            <div className="p-4 bg-gray-50 flex gap-3">
-                                <button 
-                                    onClick={() => setPaymentModal({ isOpen: false, book: null, nominal: "", isExternal: false, receiver: "" })}
-                                    className="flex-1 py-3 bg-white border border-gray-300 text-gray-700 rounded-xl font-bold shadow-sm active:bg-gray-100"
-                                >
-                                    Batal
-                                </button>
-                                <button 
-                                    onClick={() => {
-                                        handleUpdatePayment(activeStudent.id, paymentModal.book.id, Number(paymentModal.nominal), paymentModal.book.price, paymentModal.isExternal ? paymentModal.receiver : "");
-                                        setPaymentModal({ isOpen: false, book: null, nominal: "", isExternal: false, receiver: "" });
-                                    }}
-                                    disabled={!paymentModal.nominal || Number(paymentModal.nominal) <= 0}
-                                    className={`flex-1 py-3 rounded-xl font-bold shadow-sm transition-all ${(!paymentModal.nominal || Number(paymentModal.nominal) <= 0) ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-teal-600 text-white active:bg-teal-700'}`}
-                                >
-                                    Simpan
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                )}
-
-                {/* MODAL BATALKAN PEMBAYARAN */}
-                {uncheckModal.isOpen && (
-                    <div className="fixed inset-0 bg-black/60 z-[100] flex items-center justify-center p-4">
-                        <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
-                            <div className="p-6 text-center">
-                                <div className="w-16 h-16 bg-red-100 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4">
-                                    <Trash2 size={32} />
+                            <div className="p-4 bg-gray-50 flex flex-col gap-2">
+                                <div className="flex gap-3">
+                                    <button 
+                                        onClick={() => setPaymentModal({ isOpen: false, book: null, nominal: "", isExternal: false, receiver: "", isAlreadyPaid: false })}
+                                        className="flex-1 py-3 bg-white border border-gray-300 text-gray-700 rounded-xl font-bold shadow-sm active:bg-gray-100"
+                                    >
+                                        Batal
+                                    </button>
+                                    <button 
+                                        onClick={() => {
+                                            handleUpdatePayment(activeStudent.id, paymentModal.book.id, Number(paymentModal.nominal), paymentModal.book.price, paymentModal.isExternal ? paymentModal.receiver : "");
+                                            setPaymentModal({ isOpen: false, book: null, nominal: "", isExternal: false, receiver: "", isAlreadyPaid: false });
+                                        }}
+                                        disabled={!paymentModal.nominal || Number(paymentModal.nominal) <= 0}
+                                        className={`flex-1 py-3 rounded-xl font-bold shadow-sm transition-all ${(!paymentModal.nominal || Number(paymentModal.nominal) <= 0) ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-teal-600 text-white active:bg-teal-700'}`}
+                                    >
+                                        Simpan
+                                    </button>
                                 </div>
-                                <h3 className="font-bold text-lg text-gray-800 mb-2">Hapus Pembayaran?</h3>
-                                <p className="text-sm text-gray-500">Anda yakin ingin mengubah status <b>{uncheckModal.book.name}</b> kembali menjadi Belum Lunas 0 Rupiah?</p>
-                            </div>
-                            <div className="p-4 bg-gray-50 flex gap-3">
-                                <button 
-                                    onClick={() => setUncheckModal({ isOpen: false, book: null })}
-                                    className="flex-1 py-3 bg-white border border-gray-300 text-gray-700 rounded-xl font-bold shadow-sm active:bg-gray-100"
-                                >
-                                    Tutup
-                                </button>
-                                <button 
-                                    onClick={() => {
-                                        handleUpdatePayment(activeStudent.id, uncheckModal.book.id, 0, uncheckModal.book.price);
-                                        setUncheckModal({ isOpen: false, book: null });
-                                    }}
-                                    className="flex-1 py-3 bg-red-500 text-white rounded-xl font-bold shadow-sm active:bg-red-600"
-                                >
-                                    Ya, Hapus
-                                </button>
+                                {paymentModal.isAlreadyPaid && (
+                                    <button
+                                        onClick={() => {
+                                            if (confirm(`Anda yakin ingin menghapus dan mereset status pembayaran "${paymentModal.book.name}" menjadi belum lunas?`)) {
+                                                handleUpdatePayment(activeStudent.id, paymentModal.book.id, 0, paymentModal.book.price, "");
+                                                setPaymentModal({ isOpen: false, book: null, nominal: "", isExternal: false, receiver: "", isAlreadyPaid: false });
+                                            }
+                                        }}
+                                        className="w-full py-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl font-bold text-xs shadow-sm transition-all mt-1"
+                                    >
+                                        Hapus/Reset Status Pembayaran
+                                    </button>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -626,15 +755,15 @@
                              const partial = student.partialPayments?.[buku.id] || 0;
                              const receiver = student.externalReceivers?.[buku.id];
                              return (
-                               <div key={buku.id} className="flex items-center justify-between text-xs p-1.5 rounded border border-gray-100">
+                               <div key={buku.id} className="flex items-center justify-between text-xs p-1.5 rounded border border-gray-100 bg-gray-50/50">
                                   <span className="text-gray-600 truncate mr-1">
                                       {buku.name}
-                                      {receiver && <span className="ml-1 text-[9px] bg-blue-50 text-blue-600 px-1 rounded truncate">ke {receiver}</span>}
+                                      {receiver && <span className="ml-1 text-[9px] bg-blue-100 text-blue-700 px-1 rounded truncate font-bold">ke: {receiver}</span>}
                                   </span>
                                   {paid ? (
                                       <CheckCircle2 size={14} className="text-green-500 shrink-0" />
                                   ) : partial > 0 ? (
-                                      <span className="text-orange-500 font-bold text-[9px] truncate ml-1">{formatRupiah(partial)}</span>
+                                      <span className="text-orange-500 font-bold text-[10px] shrink-0 ml-1">{formatRupiah(partial)}</span>
                                   ) : (
                                       <XCircle size={14} className="text-red-300 shrink-0" />
                                   )}
@@ -651,7 +780,7 @@
                                             <span key={idx} className="bg-teal-50 text-teal-700 border border-teal-100 px-1.5 py-0.5 rounded text-[9px] font-medium tracking-tight whitespace-nowrap">{date}</span>
                                         ))
                                     ) : (
-                                        <span className="text-xs font-medium text-gray-600">-</span>
+                                        <span className="text-xs font-semibold text-gray-400">-</span>
                                     )}
                                 </div>
                             </div>
@@ -669,7 +798,6 @@
         );
 
         const TunggakanView = ({ students, books }) => {
-            // Hitung total tunggakan keseluruhan
             const totalTunggakan = students.reduce((acc, student) => {
                 let studentMissing = 0;
                 books.forEach(buku => {
@@ -681,7 +809,6 @@
                 return acc + studentMissing;
             }, 0);
 
-            // Filter hanya siswa yang belum lunas semuanya
             const studentsWithTunggakan = students.filter(s => s.paidBooks.length < books.length);
 
             return (
@@ -692,7 +819,7 @@
                     </header>
 
                     <div className="p-4 space-y-4">
-                        <div className="bg-red-50 p-4 rounded-xl border border-red-100 flex justify-between items-center">
+                        <div className="bg-red-50 p-4 rounded-xl border border-red-100 flex justify-between items-center shadow-sm">
                             <div>
                                 <p className="text-xs text-red-600 uppercase font-bold">Total Tunggakan</p>
                                 <p className="text-xl font-bold text-red-800">{formatRupiah(totalTunggakan)}</p>
@@ -710,9 +837,7 @@
                             </div>
                         ) : (
                             studentsWithTunggakan.map(student => {
-                                // Cari buku yang belum lunas
                                 const missingItems = books.filter(b => !student.paidBooks.includes(b.id));
-                                // Hitung total kekurangan untuk siswa ini
                                 const studentTotalMissing = missingItems.reduce((sum, b) => sum + (b.price - (student.partialPayments?.[b.id] || 0)), 0);
 
                                 return (
@@ -723,7 +848,7 @@
                                                 <h3 className="font-bold text-gray-800 text-sm truncate w-40 sm:w-auto">{student.name}</h3>
                                             </div>
                                             <div className="text-right">
-                                                <p className="text-[10px] text-gray-500 uppercase font-bold">Total Kurang</p>
+                                                <p className="text-[10px] text-gray-400 uppercase font-bold">Total Kurang</p>
                                                 <p className="text-sm font-bold text-red-600">{formatRupiah(studentTotalMissing)}</p>
                                             </div>
                                         </div>
@@ -731,11 +856,11 @@
                                             {missingItems.map(buku => {
                                                 const partial = student.partialPayments?.[buku.id] || 0;
                                                 return (
-                                                    <div key={buku.id} className="flex justify-between items-center text-xs p-2 rounded border border-gray-100 bg-white">
+                                                    <div key={buku.id} className="flex justify-between items-center text-xs p-2 rounded border border-gray-100 bg-white shadow-sm">
                                                         <div>
-                                                            <span className="font-medium text-gray-700">{buku.name}</span>
+                                                            <span className="font-semibold text-gray-700">{buku.name}</span>
                                                             {partial > 0 && (
-                                                                <p className="text-[9px] text-gray-500 mt-0.5">Sudah bayar: {formatRupiah(partial)}</p>
+                                                                <p className="text-[10px] text-gray-400 mt-0.5">Cicilan masuk: {formatRupiah(partial)}</p>
                                                             )}
                                                         </div>
                                                         <div className="text-right shrink-0 ml-2">
@@ -822,7 +947,7 @@
                    <h2 className="text-xl font-bold text-gray-800 mb-4">Cetak Kwitansi</h2>
                    <div className="space-y-3">
                      <div>
-                       <label className="block text-xs font-medium text-gray-500 mb-1">Pilih Siswa</label>
+                       <label className="block text-xs font-bold text-gray-500 mb-1">Pilih Siswa</label>
                        <select className="w-full p-2 bg-gray-50 border border-gray-200 rounded-lg text-sm"
                           onChange={(e) => setSelectedStudentId(e.target.value)} value={selectedStudentId}>
                          <option value="">-- Pilih --</option>
@@ -943,7 +1068,7 @@
             const saved = localStorage.getItem('dataKeuanganKelas1');
             if (saved) {
                 const parsed = JSON.parse(saved);
-                // Backward compatibility: pastikan partialPayments selalu ada meskipun dari backup lama
+                // Backward compatibility: pastikan struktur data lengkap
                 return parsed.map(s => ({ 
                     ...s, 
                     partialPayments: s.partialPayments || {},
@@ -966,7 +1091,7 @@
             return localStorage.getItem('guruSignature') || null;
           });
 
-          // Efek Simpan Otomatis
+          // Efek Simpan Otomatis ke Local Storage
           useEffect(() => { localStorage.setItem('dataBukuKelas1', JSON.stringify(books)); }, [books]);
           useEffect(() => { localStorage.setItem('dataKeuanganKelas1', JSON.stringify(students)); }, [students]);
           useEffect(() => {
@@ -974,6 +1099,7 @@
             else { localStorage.removeItem('guruSignature'); }
           }, [signatureImg]);
 
+          // Handler Update Pembayaran Terpadu (Single)
           const handleUpdatePayment = (studentId, bookId, nominal, bookPrice, receiverName = "") => {
             const now = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
             
@@ -987,13 +1113,14 @@
               delete newPartialPayments[bookId];
 
               if (nominal >= bookPrice) {
-                  // Lunas
+                  // Status Lunas
                   newPaidBooks.push(bookId);
               } else if (nominal > 0) {
-                  // Cicil
+                  // Status Cicil
                   newPartialPayments[bookId] = nominal;
               }
 
+              // Set/Update nama penerima eksternal
               if (nominal > 0 && receiverName.trim() !== "") {
                   newExternalReceivers[bookId] = receiverName.trim();
               } else {
@@ -1008,7 +1135,8 @@
               }
               
               if (!hasAnyPayment) {
-                  newPaymentDates = []; // Reset jika semua pembayaran dihapus
+                  newPaymentDates = []; // Reset jika dihapus
+                  delete newExternalReceivers[bookId];
               }
 
               return { 
@@ -1022,8 +1150,53 @@
             }));
           };
 
+          // Handler Update Pembayaran Secara Masal (Bulk Update)
+          const handleBulkUpdatePayment = (studentIds, bookIds, receiverName) => {
+              const now = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+              
+              setStudents(prev => prev.map(student => {
+                  if (!studentIds.includes(student.id)) return student;
+                  
+                  let newPaidBooks = [...(student.paidBooks || [])];
+                  let newPartialPayments = { ...(student.partialPayments || {}) };
+                  let newExternalReceivers = { ...(student.externalReceivers || {}) };
+                  let newPaymentDates = [...(student.paymentDates || [])];
+
+                  bookIds.forEach(bookId => {
+                      const book = books.find(b => b.id === bookId);
+                      if (!book) return;
+
+                      // Tandai langsung Lunas
+                      if (!newPaidBooks.includes(bookId)) {
+                          newPaidBooks.push(bookId);
+                      }
+                      
+                      // Hapus sisa cicilan
+                      delete newPartialPayments[bookId];
+                      
+                      // Set Penerima Pembayaran Eksternal
+                      if (receiverName.trim() !== "") {
+                          newExternalReceivers[bookId] = receiverName.trim();
+                      }
+                  });
+
+                  if (!newPaymentDates.includes(now)) {
+                      newPaymentDates.push(now);
+                  }
+
+                  return {
+                      ...student,
+                      paidBooks: newPaidBooks,
+                      partialPayments: newPartialPayments,
+                      paymentDates: newPaymentDates,
+                      externalReceivers: newExternalReceivers,
+                      lastUpdate: now
+                  };
+              }));
+          };
+
           const handleBackup = () => {
-             const dataToSave = { students, books, signature: signatureImg, appVersion: "2.2", timestamp: new Date().toISOString() };
+             const dataToSave = { students, books, signature: signatureImg, appVersion: "2.3", timestamp: new Date().toISOString() };
              const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataToSave));
              const downloadAnchorNode = document.createElement('a');
              downloadAnchorNode.setAttribute("href", dataStr);
@@ -1042,8 +1215,7 @@
                 try {
                    const parsedData = JSON.parse(e.target.result);
                    if (parsedData.students && Array.isArray(parsedData.students)) {
-                      if (confirm("PERINGATAN: Restore akan menimpa data yang ada.\n\nYakin ingin melanjutkan?")) {
-                          // Compatibility check untuk file backup versi sebelumnya
+                      if (confirm("PERINGATAN: Restore akan menimpa data saat ini.\n\nYakin ingin melanjutkan?")) {
                           const validatedStudents = parsedData.students.map(s => ({
                               ...s,
                               partialPayments: s.partialPayments || {},
@@ -1052,13 +1224,12 @@
                           }));
                           setStudents(validatedStudents);
                           
-                          // Restore books jika ada (untuk versi aplikasi 2.1+)
                           if (parsedData.books && Array.isArray(parsedData.books)) {
                               setBooks(parsedData.books);
                           }
                           
                           if (parsedData.signature) { setSignatureImg(parsedData.signature); }
-                          alert("Sukses! Data berhasil dikembalikan.");
+                          alert("Sukses! Data berhasil dipulihkan.");
                       }
                    } else { alert("Format file tidak valid."); }
                 } catch (error) { alert("Gagal membaca file."); }
@@ -1070,7 +1241,7 @@
             <div className="min-h-screen bg-gray-50 font-sans text-gray-800 max-w-md mx-auto shadow-2xl overflow-hidden relative">
               <main className="h-full min-h-screen">
                 {activeTab === 'beranda' && <BerandaView students={students} handleBackup={handleBackup} handleRestore={handleRestore} books={books} setBooks={setBooks} />}
-                {activeTab === 'pembayaran' && <PembayaranView students={students} handleUpdatePayment={handleUpdatePayment} books={books} />}
+                {activeTab === 'pembayaran' && <PembayaranView students={students} handleUpdatePayment={handleUpdatePayment} handleBulkUpdatePayment={handleBulkUpdatePayment} books={books} />}
                 {activeTab === 'detail' && <DetailView students={students} books={books} />}
                 {activeTab === 'tunggakan' && <TunggakanView students={students} books={books} />}
                 {activeTab === 'kwitansi' && <KwitansiView students={students} signatureImg={signatureImg} setSignatureImg={setSignatureImg} books={books} />}
