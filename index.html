@@ -146,8 +146,14 @@
             const totalSeharusnya = students.length * totalTagihanPerSiswa;
             
             const totalTerkumpul = students.reduce((acc, student) => {
-              const full = student.paidBooks.reduce((sum, bookId) => sum + (books.find(b => b.id === bookId)?.price || 0), 0);
-              const partial = Object.values(student.partialPayments || {}).reduce((sum, amt) => sum + Number(amt), 0);
+              const full = student.paidBooks.reduce((sum, bookId) => {
+                  if (student.externalReceivers && student.externalReceivers[bookId]) return sum;
+                  return sum + (books.find(b => b.id === bookId)?.price || 0);
+              }, 0);
+              const partial = Object.entries(student.partialPayments || {}).reduce((sum, [bookId, amt]) => {
+                  if (student.externalReceivers && student.externalReceivers[bookId]) return sum;
+                  return sum + Number(amt);
+              }, 0);
               return acc + full + partial;
             }, 0);
             
@@ -344,7 +350,7 @@
 
         const PembayaranView = ({ students, handleUpdatePayment, books }) => {
             const [selectedStudentId, setSelectedStudentId] = useState("");
-            const [paymentModal, setPaymentModal] = useState({ isOpen: false, book: null, nominal: "" });
+            const [paymentModal, setPaymentModal] = useState({ isOpen: false, book: null, nominal: "", isExternal: false, receiver: "" });
             const [uncheckModal, setUncheckModal] = useState({ isOpen: false, book: null });
             
             const activeStudent = useMemo(() => students.find(s => s.id === parseInt(selectedStudentId)), [selectedStudentId, students]);
@@ -360,13 +366,14 @@
             const onClickBuku = (buku) => {
                 const isPaid = activeStudent.paidBooks.includes(buku.id);
                 const partialAmt = activeStudent.partialPayments?.[buku.id];
+                const extReceiver = activeStudent.externalReceivers?.[buku.id] || "";
                 
                 if (isPaid) {
                     setUncheckModal({ isOpen: true, book: buku });
                 } else if (partialAmt) {
-                    setPaymentModal({ isOpen: true, book: buku, nominal: partialAmt.toString() });
+                    setPaymentModal({ isOpen: true, book: buku, nominal: partialAmt.toString(), isExternal: !!extReceiver, receiver: extReceiver });
                 } else {
-                    setPaymentModal({ isOpen: true, book: buku, nominal: "" });
+                    setPaymentModal({ isOpen: true, book: buku, nominal: "", isExternal: false, receiver: "" });
                 }
             };
 
@@ -424,10 +431,14 @@
                               </div>
                               <div className={`text-xs font-medium px-2 py-1 rounded text-right ${isPaid ? 'bg-gray-100 text-gray-600' : isPartial ? 'bg-orange-100 text-orange-700' : 'bg-gray-100 text-gray-600'}`}>
                                 {isPaid ? (
-                                    'LUNAS'
+                                    <div className="flex flex-col items-end">
+                                        <span>LUNAS</span>
+                                        {activeStudent.externalReceivers?.[buku.id] && <span className="text-[9px] text-blue-600 mt-0.5 tracking-tight">ke {activeStudent.externalReceivers[buku.id]}</span>}
+                                    </div>
                                 ) : isPartial ? (
                                     <div className="flex flex-col items-end">
                                         <span>DICICIL</span>
+                                        {activeStudent.externalReceivers?.[buku.id] && <span className="text-[9px] text-blue-600 mt-0.5 tracking-tight">ke {activeStudent.externalReceivers[buku.id]}</span>}
                                         <span className="text-[9px] opacity-80 mt-0.5 tracking-tight">Sisa {formatRupiah(buku.price - partialAmt)}</span>
                                     </div>
                                 ) : (
@@ -452,7 +463,7 @@
                         <div className="bg-white rounded-2xl w-full max-w-sm overflow-hidden shadow-2xl animate-in zoom-in-95 duration-200">
                             <div className="bg-teal-600 p-4 text-white flex justify-between items-center">
                                 <h3 className="font-bold">Konfirmasi Pembayaran</h3>
-                                <button onClick={() => setPaymentModal({ isOpen: false, book: null, nominal: "" })}><XCircle size={20}/></button>
+                                <button onClick={() => setPaymentModal({ isOpen: false, book: null, nominal: "", isExternal: false, receiver: "" })}><XCircle size={20}/></button>
                             </div>
                             <div className="p-5 space-y-4">
                                 <div className="text-center mb-2">
@@ -478,6 +489,27 @@
                                             autoFocus
                                         />
                                     </div>
+                                </div>
+
+                                <div className="bg-blue-50 p-3 rounded-xl border border-blue-100">
+                                    <label className="flex items-center gap-2 text-sm text-gray-700 font-medium cursor-pointer">
+                                        <input 
+                                            type="checkbox" 
+                                            checked={paymentModal.isExternal} 
+                                            onChange={(e) => setPaymentModal({...paymentModal, isExternal: e.target.checked, receiver: e.target.checked ? paymentModal.receiver : ""})} 
+                                            className="w-4 h-4 rounded text-blue-600 focus:ring-blue-500" 
+                                        />
+                                        Dibayar ke guru/pihak lain?
+                                    </label>
+                                    {paymentModal.isExternal && (
+                                        <input 
+                                            type="text" 
+                                            value={paymentModal.receiver} 
+                                            onChange={(e) => setPaymentModal({...paymentModal, receiver: e.target.value})} 
+                                            placeholder="Contoh: Pak Budi / Guru Mapel" 
+                                            className="mt-3 w-full p-2 border border-gray-300 rounded-lg text-sm outline-none focus:border-blue-500" 
+                                        />
+                                    )}
                                 </div>
 
                                 {/* Status Info */}
@@ -512,15 +544,15 @@
                             
                             <div className="p-4 bg-gray-50 flex gap-3">
                                 <button 
-                                    onClick={() => setPaymentModal({ isOpen: false, book: null, nominal: "" })}
+                                    onClick={() => setPaymentModal({ isOpen: false, book: null, nominal: "", isExternal: false, receiver: "" })}
                                     className="flex-1 py-3 bg-white border border-gray-300 text-gray-700 rounded-xl font-bold shadow-sm active:bg-gray-100"
                                 >
                                     Batal
                                 </button>
                                 <button 
                                     onClick={() => {
-                                        handleUpdatePayment(activeStudent.id, paymentModal.book.id, Number(paymentModal.nominal), paymentModal.book.price);
-                                        setPaymentModal({ isOpen: false, book: null, nominal: "" });
+                                        handleUpdatePayment(activeStudent.id, paymentModal.book.id, Number(paymentModal.nominal), paymentModal.book.price, paymentModal.isExternal ? paymentModal.receiver : "");
+                                        setPaymentModal({ isOpen: false, book: null, nominal: "", isExternal: false, receiver: "" });
                                     }}
                                     disabled={!paymentModal.nominal || Number(paymentModal.nominal) <= 0}
                                     className={`flex-1 py-3 rounded-xl font-bold shadow-sm transition-all ${(!paymentModal.nominal || Number(paymentModal.nominal) <= 0) ? 'bg-gray-300 text-gray-500 cursor-not-allowed' : 'bg-teal-600 text-white active:bg-teal-700'}`}
@@ -592,9 +624,13 @@
                            {books.map(buku => {
                              const paid = student.paidBooks.includes(buku.id);
                              const partial = student.partialPayments?.[buku.id] || 0;
+                             const receiver = student.externalReceivers?.[buku.id];
                              return (
                                <div key={buku.id} className="flex items-center justify-between text-xs p-1.5 rounded border border-gray-100">
-                                  <span className="text-gray-600 truncate mr-1">{buku.name}</span>
+                                  <span className="text-gray-600 truncate mr-1">
+                                      {buku.name}
+                                      {receiver && <span className="ml-1 text-[9px] bg-blue-50 text-blue-600 px-1 rounded truncate">ke {receiver}</span>}
+                                  </span>
                                   {paid ? (
                                       <CheckCircle2 size={14} className="text-green-500 shrink-0" />
                                   ) : partial > 0 ? (
@@ -742,8 +778,14 @@
             const noKwitansi = activeStudent ? `KW/2026/${String(activeStudent.id).padStart(3, '0')}` : "...";
 
             // List item lunas dan cicilan
-            const paidItems = activeStudent ? activeStudent.paidBooks.map(bid => books.find(b => b.id === bid)?.name) : [];
-            const partialItems = activeStudent ? Object.keys(activeStudent.partialPayments || {}).map(bid => books.find(b => b.id === bid)?.name + " (Cicil)") : [];
+            const paidItems = activeStudent ? activeStudent.paidBooks.map(bid => {
+                const ext = activeStudent.externalReceivers?.[bid];
+                return books.find(b => b.id === bid)?.name + (ext ? ` (ke ${ext})` : "");
+            }) : [];
+            const partialItems = activeStudent ? Object.keys(activeStudent.partialPayments || {}).map(bid => {
+                const ext = activeStudent.externalReceivers?.[bid];
+                return books.find(b => b.id === bid)?.name + ` (Cicil${ext ? ` ke ${ext}` : ''})`;
+            }) : [];
             const allItems = [...paidItems, ...partialItems];
 
             const handleDownloadImage = async () => {
@@ -905,7 +947,8 @@
                 return parsed.map(s => ({ 
                     ...s, 
                     partialPayments: s.partialPayments || {},
-                    paymentDates: s.paymentDates || (s.lastUpdate && s.lastUpdate !== '-' ? [s.lastUpdate] : [])
+                    paymentDates: s.paymentDates || (s.lastUpdate && s.lastUpdate !== '-' ? [s.lastUpdate] : []),
+                    externalReceivers: s.externalReceivers || {}
                 }));
             }
             return DATA_SISWA_AWAL.map((name, index) => ({
@@ -914,6 +957,7 @@
               paidBooks: [], 
               partialPayments: {},
               paymentDates: [],
+              externalReceivers: {},
               lastUpdate: '-'
             }));
           });
@@ -930,7 +974,7 @@
             else { localStorage.removeItem('guruSignature'); }
           }, [signatureImg]);
 
-          const handleUpdatePayment = (studentId, bookId, nominal, bookPrice) => {
+          const handleUpdatePayment = (studentId, bookId, nominal, bookPrice, receiverName = "") => {
             const now = new Date().toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
             
             setStudents(prev => prev.map(student => {
@@ -938,6 +982,8 @@
               
               let newPaidBooks = student.paidBooks.filter(id => id !== bookId);
               let newPartialPayments = { ...(student.partialPayments || {}) };
+              let newExternalReceivers = { ...(student.externalReceivers || {}) };
+              
               delete newPartialPayments[bookId];
 
               if (nominal >= bookPrice) {
@@ -946,6 +992,12 @@
               } else if (nominal > 0) {
                   // Cicil
                   newPartialPayments[bookId] = nominal;
+              }
+
+              if (nominal > 0 && receiverName.trim() !== "") {
+                  newExternalReceivers[bookId] = receiverName.trim();
+              } else {
+                  delete newExternalReceivers[bookId];
               }
 
               const hasAnyPayment = newPaidBooks.length > 0 || Object.keys(newPartialPayments).length > 0;
@@ -964,13 +1016,14 @@
                   paidBooks: newPaidBooks, 
                   partialPayments: newPartialPayments,
                   paymentDates: newPaymentDates,
+                  externalReceivers: newExternalReceivers,
                   lastUpdate: hasAnyPayment ? now : '-' 
               };
             }));
           };
 
           const handleBackup = () => {
-             const dataToSave = { students, books, signature: signatureImg, appVersion: "2.1", timestamp: new Date().toISOString() };
+             const dataToSave = { students, books, signature: signatureImg, appVersion: "2.2", timestamp: new Date().toISOString() };
              const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(dataToSave));
              const downloadAnchorNode = document.createElement('a');
              downloadAnchorNode.setAttribute("href", dataStr);
@@ -994,7 +1047,8 @@
                           const validatedStudents = parsedData.students.map(s => ({
                               ...s,
                               partialPayments: s.partialPayments || {},
-                              paymentDates: s.paymentDates || (s.lastUpdate && s.lastUpdate !== '-' ? [s.lastUpdate] : [])
+                              paymentDates: s.paymentDates || (s.lastUpdate && s.lastUpdate !== '-' ? [s.lastUpdate] : []),
+                              externalReceivers: s.externalReceivers || {}
                           }));
                           setStudents(validatedStudents);
                           
