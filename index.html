@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+<title>MY KISAH: Adventure To Work – Mulang Part 1</title>
+<link rel="stylesheet" href="style.css" />
+<meta name="theme-color" content="#173d7a" />
+<link rel="manifest" href="manifest.json" />
+</head>
+<body>
+
+<div id="app">
+
+  <!-- ============ SPLASH SCREEN ============ -->
+  <div id="screen-splash" class="screen active">
+    <div class="splash-bg"></div>
+    <div class="splash-content fade-in">
+      <h1 class="game-title">MY KISAH</h1>
+      <h2 class="game-subtitle">ADVENTURE TO WORK</h2>
+      <h3 class="game-part">– Mulang Part 1 –</h3>
+      <p class="game-author">by Anggi P</p>
+      <button id="btn-start-splash" class="btn-primary btn-glow">▶ MULAI BERMAIN</button>
+    </div>
+  </div>
+
+  <!-- ============ MAIN MENU ============ -->
+  <div id="screen-menu" class="screen">
+    <div class="menu-bg"></div>
+    <div class="menu-content">
+      <h1 class="menu-title">MY KISAH</h1>
+      <p class="menu-subtitle">Adventure To Work – Mulang Part 1</p>
+      <div class="menu-list">
+        <button class="btn-menu" data-action="play">▶ Play</button>
+        <button class="btn-menu" data-action="continue">⏯ Continue</button>
+        <button class="btn-menu" data-action="stage-select">🗺 Pilih Stage</button>
+        <button class="btn-menu" data-action="shop">🛒 Shop</button>
+        <button class="btn-menu" data-action="achievements">🏆 Achievement</button>
+        <button class="btn-menu" data-action="stats">📊 Statistik</button>
+        <button class="btn-menu" data-action="settings">⚙ Pengaturan</button>
+        <button class="btn-menu" data-action="about">ℹ Tentang Game</button>
+        <button class="btn-menu" data-action="credits">🎬 Credits</button>
+      </div>
+      <div class="menu-currency">🪙 <span id="menu-gaji">0</span> Gaji Guru</div>
+    </div>
+  </div>
+
+  <!-- ============ STAGE SELECT ============ -->
+  <div id="screen-stage-select" class="screen">
+    <div class="panel">
+      <h2>Pilih Stage</h2>
+      <div id="stage-list" class="stage-list"></div>
+      <button class="btn-back" data-back="menu">⬅ Kembali</button>
+    </div>
+  </div>
+
+  <!-- ============ SHOP ============ -->
+  <div id="screen-shop" class="screen">
+    <div class="panel panel-scroll">
+      <h2>🛒 Shop</h2>
+      <div class="menu-currency">🪙 <span id="shop-gaji">0</span> Gaji Guru</div>
+      <div class="shop-tabs">
+        <button class="tab-btn active" data-tab="vehicles">Kendaraan</button>
+        <button class="tab-btn" data-tab="upgrades">Upgrade</button>
+        <button class="tab-btn" data-tab="items">Item</button>
+      </div>
+      <div id="shop-vehicles" class="shop-panel"></div>
+      <div id="shop-upgrades" class="shop-panel hidden"></div>
+      <div id="shop-items" class="shop-panel hidden"></div>
+      <button class="btn-back" data-back="menu">⬅ Kembali</button>
+    </div>
+  </div>
+
+  <!-- ============ ACHIEVEMENTS ============ -->
+  <div id="screen-achievements" class="screen">
+    <div class="panel panel-scroll">
+      <h2>🏆 Achievement</h2>
+      <div id="achievement-list" class="achievement-list"></div>
+      <button class="btn-back" data-back="menu">⬅ Kembali</button>
+    </div>
+  </div>
+
+  <!-- ============ STATISTIK ============ -->
+  <div id="screen-stats" class="screen">
+    <div class="panel">
+      <h2>📊 Statistik</h2>
+      <div id="stats-content" class="stats-content"></div>
+      <button class="btn-back" data-back="menu">⬅ Kembali</button>
+    </div>
+  </div>
+
+  <!-- ============ PENGATURAN ============ -->
+  <div id="screen-settings" class="screen">
+    <div class="panel">
+      <h2>⚙ Pengaturan</h2>
+      <div class="settings-row"><span>🔊 Efek Suara</span><input type="checkbox" id="opt-sfx" /></div>
+      <div class="settings-row"><span>🎵 Musik</span><input type="checkbox" id="opt-music" /></div>
+      <div class="settings-row"><span>📳 Getar</span><input type="checkbox" id="opt-vibrate" /></div>
+      <button class="btn-menu" id="btn-reset-save">🗑 Hapus Progres</button>
+      <button class="btn-back" data-back="menu">⬅ Kembali</button>
+    </div>
+  </div>
+
+  <!-- ============ TENTANG / CREDITS ============ -->
+  <div id="screen-about" class="screen">
+    <div class="panel">
+      <h2>ℹ Tentang Game</h2>
+      <p class="about-text">Seorang Guru harus berangkat menuju tempat mengajar di SD Negeri 1 Gerduren. Perjalanan dipenuhi berbagai rintangan dan musuh. Anak-anak sudah menunggu di sekolah, namun perjalanan menuju sekolah tidak mudah — melewati desa, hutan, sungai, hingga jalan raya.</p>
+      <button class="btn-back" data-back="menu">⬅ Kembali</button>
+    </div>
+  </div>
+
+  <div id="screen-credits" class="screen">
+    <div class="panel">
+      <h2>🎬 Credits</h2>
+      <p class="about-text">MY KISAH: Adventure To Work – Mulang Part 1<br/>by Anggi P</p>
+      <p class="about-text">Dibuat dengan HTML5, CSS3 &amp; Vanilla JavaScript.</p>
+      <button class="btn-back" data-back="menu">⬅ Kembali</button>
+    </div>
+  </div>
+
+  <!-- ============ PRA-STAGE (SHOP CEPAT) ============ -->
+  <div id="screen-pre-stage" class="screen">
+    <div class="panel">
+      <h2 id="pre-stage-title">Stage 1 — Guru WB</h2>
+      <p id="pre-stage-desc" class="about-text"></p>
+      <div class="menu-currency">🪙 <span id="pre-stage-gaji">0</span> Gaji Guru</div>
+      <div id="pre-stage-items" class="pre-stage-items"></div>
+      <button id="btn-enter-stage" class="btn-primary">▶ Berangkat!</button>
+      <button class="btn-back" data-back="stage-select">⬅ Kembali</button>
+    </div>
+  </div>
+
+  <!-- ============ GAME SCREEN ============ -->
+  <div id="screen-game" class="screen">
+    <canvas id="game-canvas"></canvas>
+
+    <!-- HUD -->
+    <div id="hud">
+      <div class="hud-top">
+        <div class="hud-hearts" id="hud-hearts"></div>
+        <div class="hud-mid">
+          <div class="hud-stage" id="hud-stage">Stage 1: Guru WB</div>
+          <div class="hud-bar-wrap"><div class="hud-bar hud-exp-bar" id="hud-exp-bar"></div></div>
+          <div class="hud-progress-wrap"><div class="hud-bar hud-progress-bar" id="hud-progress-bar"></div></div>
+        </div>
+        <button id="btn-pause" class="hud-icon-btn">⚙</button>
+      </div>
+      <div class="hud-row2">
+        <div class="hud-coin">🪙 <span id="hud-coin">0</span></div>
+        <div class="hud-timer">⏱ <span id="hud-timer">00:00</span></div>
+        <div class="hud-stamina-wrap"><div class="hud-bar hud-stamina-bar" id="hud-stamina-bar"></div></div>
+      </div>
+    </div>
+
+    <!-- Touch Controls -->
+    <div id="touch-controls">
+      <div class="touch-left">
+        <button id="btn-left" class="touch-btn">⬅️</button>
+        <button id="btn-right" class="touch-btn">➡️</button>
+      </div>
+      <div class="touch-right">
+        <button id="btn-action" class="touch-btn touch-btn-small">🛡</button>
+        <button id="btn-dash" class="touch-btn touch-btn-small">⚡</button>
+        <button id="btn-jump" class="touch-btn touch-btn-big">⬆️</button>
+      </div>
+    </div>
+
+    <!-- Pause overlay -->
+    <div id="overlay-pause" class="overlay hidden">
+      <div class="panel">
+        <h2>⏸ Jeda</h2>
+        <button class="btn-menu" id="btn-resume">▶ Lanjutkan</button>
+        <button class="btn-menu" id="btn-restart-stage">🔄 Ulangi Stage</button>
+        <button class="btn-menu" id="btn-quit-menu">🏠 Menu Utama</button>
+      </div>
+    </div>
+
+    <!-- Game Over overlay -->
+    <div id="overlay-gameover" class="overlay hidden">
+      <div class="panel">
+        <h2>💔 Game Over</h2>
+        <p class="about-text">"Jangan Menyerah... Anak-anak Masih Menunggu Pak Guru."</p>
+        <button class="btn-menu" id="btn-continue-revive">▶ Continue</button>
+        <button class="btn-menu" id="btn-gameover-restart">🔄 Restart</button>
+        <button class="btn-menu" id="btn-gameover-menu">🏠 Menu</button>
+      </div>
+    </div>
+
+    <!-- Stage Clear overlay -->
+    <div id="overlay-stageclear" class="overlay hidden">
+      <div class="panel">
+        <h2>🎉 Stage Selesai!</h2>
+        <div id="stageclear-rewards" class="about-text"></div>
+        <button class="btn-menu" id="btn-next-stage">➡ Stage Berikutnya</button>
+        <button class="btn-menu" id="btn-stageclear-menu">🏠 Menu Utama</button>
+      </div>
+    </div>
+
+    <!-- Ending cinematic overlay -->
+    <div id="overlay-ending" class="overlay hidden">
+      <div class="ending-scene">
+        <div id="ending-gate" class="ending-gate">
+          <div class="flag">🇮🇩</div>
+          <div class="gate-text">SD NEGERI 1 GERDUREN</div>
+        </div>
+        <div id="ending-confetti" class="confetti-wrap"></div>
+        <h1 id="ending-welcome" class="ending-welcome hidden">SELAMAT DATANG PAK GURU</h1>
+        <div id="ending-thanks" class="ending-thanks hidden">
+          <p>Terima Kasih Telah Memainkan</p>
+          <h2>MY KISAH:</h2>
+          <h3>Adventure To Work – Mulang Part 1</h3>
+          <p>by Anggi P</p>
+          <div class="menu-list">
+            <button class="btn-menu" id="btn-end-again">🔄 Main Lagi</button>
+            <button class="btn-menu" id="btn-end-stages">🗺 Pilih Stage</button>
+            <button class="btn-menu" id="btn-end-menu">🏠 Menu Utama</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="js/utils.js"></script>
+<script src="js/save.js"></script>
+<script src="js/assets.js"></script>
+<script src="js/audio.js"></script>
+<script src="js/physics.js"></script>
+<script src="js/touchControls.js"></script>
+<script src="js/player.js"></script>
+<script src="js/enemy.js"></script>
+<script src="js/boss.js"></script>
+<script src="js/levels.js"></script>
+<script src="js/shop.js"></script>
+<script src="js/achievements.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/game.js"></script>
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('./sw.js').catch(() => {});
+    });
+  }
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+{
+  "name": "MY KISAH: Adventure To Work - Mulang Part 1",
+  "short_name": "MY KISAH",
+  "start_url": "./index.html",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#0a0e1a",
+  "theme_color": "#173d7a",
+  "description": "Petualangan seorang Guru menuju SD Negeri 1 Gerduren. by Anggi P",
+  "icons": []
+}
